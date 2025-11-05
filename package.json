@@ -1,0 +1,45 @@
+{
+  "name": "@kodebase/git-ops",
+  "version": "0.1.0",
+  "description": "Git platform abstraction for GitHub, GitLab, and Bitbucket operations",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "prebuild": "pnpm clean",
+    "check-types": "tsc -p tsconfig.json --noEmit",
+    "lint": "biome lint .",
+    "lint:package": "publint",
+    "lint:types": "attw --pack . --profile esm-only",
+    "format": "biome format .",
+    "test": "vitest run",
+    "prepack": "pnpm lint:package"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
+    "@kodebase/typescript-config": "workspace:*",
+    "@vitest/coverage-istanbul": "^3.0.7",
+    "@types/node": "^22.19.0",
+    "publint": "^0.3.15",
+    "vitest": "^4.0.7"
+  }
+}
