@@ -21,11 +21,16 @@ export {
   createHookExecutorForType,
   type HookContext,
   type HookErrorCallback,
+  type HookExecutionMetadata,
+  type HookExecutionStatus,
   HookExecutor,
   type HookExecutorConfig,
   type HookLifecycleCallback,
   type HookResult,
+  type IdempotencyConfig,
+  IdempotencyTracker,
   isHookEnabled,
+  type ShouldExecuteResult,
 } from "./hooks/index.js";
 export type {
   AuthStatus,
