@@ -2,6 +2,12 @@
  * Hook execution framework for git operations
  */
 
+export { createCascadeCommit } from "./cascade-commit.js";
+export type {
+  CascadeCommitAttribution,
+  CreateCascadeCommitOptions,
+  CreateCascadeCommitResult,
+} from "./cascade-commit-types.js";
 export type { THookEvent, THookTrigger } from "./constants.js";
 export { CHookEvent, CHookTrigger } from "./constants.js";
 export { HookExecutor } from "./hook-executor.js";
