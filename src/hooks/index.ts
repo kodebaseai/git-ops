@@ -36,6 +36,15 @@ export {
   createPostMergeDetector,
   PostMergeDetector,
 } from "./post-merge-detector.js";
+export {
+  createPostMergeOrchestrator,
+  PostMergeOrchestrator,
+} from "./post-merge-orchestrator.js";
+export type {
+  ExecuteOrchestrationOptions,
+  OrchestrationResult,
+  PostMergeOrchestratorConfig,
+} from "./post-merge-orchestrator-types.js";
 export type {
   MergeDetectionResult,
   MergeMetadata,

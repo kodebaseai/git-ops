@@ -35,6 +35,7 @@
     "prepack": "pnpm lint:package"
   },
   "dependencies": {
+    "@kodebase/artifacts": "^1.1.0",
     "@kodebase/config": "workspace:*",
     "@kodebase/core": "workspace:*"
   },
