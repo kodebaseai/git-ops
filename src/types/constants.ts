@@ -2,16 +2,12 @@
  * Git platform constants and type definitions
  */
 
-/**
- * Supported git platforms
- */
-export const CGitPlatform = {
-  GITHUB: "github",
-  GITLAB: "gitlab",
-  BITBUCKET: "bitbucket",
-} as const;
+import { CGitPlatform, type TGitPlatform } from "@kodebase/core";
 
-export type TGitPlatform = (typeof CGitPlatform)[keyof typeof CGitPlatform];
+/**
+ * Supported git platforms (re-exported from @kodebase/core)
+ */
+export { CGitPlatform, type TGitPlatform };
 
 /**
  * Pull request merge methods
