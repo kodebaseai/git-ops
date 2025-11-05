@@ -1,5 +1,57 @@
 # @kodebase/git-ops
 
+## 0.4.0
+
+### Minor Changes
+
+- [#153](https://github.com/kodebaseai/kodebase/pull/153) [`ad4926f`](https://github.com/kodebaseai/kodebase/commit/ad4926f859125f5bdd5cab431195c4b02fe663f9) Thanks [@migcarva](https://github.com/migcarva)! - feat(git-ops): complete post-merge hook workflow automation
+
+  Implements complete post-merge hook workflow with cascade execution and configurable strategies:
+
+  **Post-Merge Detection (C.5.1)**
+
+  - PR merge detection with artifact ID extraction from branch names
+  - Support for nested artifact IDs (e.g., C.4.1.2)
+  - Merge metadata collection (PR number, branch, commit SHA)
+  - Configurable target branch and requirePR validation
+
+  **Cascade Orchestration (C.5.2)**
+
+  - Completion cascade: siblings done → parent in_review
+  - Readiness cascade: blocker done → dependents ready
+  - Integration with CascadeService for state transitions
+  - Graceful error handling per artifact
+
+  **Strategy Execution (C.5.3)**
+
+  - `cascade_pr`: Automatic PR creation with cascade changes
+  - `direct_commit`: Direct push to main branch
+  - `manual`: Log-only mode for manual application
+  - Configuration via @kodebase/config with sensible defaults
+
+  **Cascade Commits (C.5.4)**
+
+  - Agent attribution per ADR-006
+  - Formatted commit messages with affected artifacts
+  - Co-Authored-By headers for human actors
+  - Command injection prevention via JSON.stringify()
+
+  **Integration Tests (C.5.5)**
+
+  - 8 integration tests for workflow validation
+  - API contract testing between components
+  - Error handling and idempotency verification
+  - Configuration loading validation
+
+  **Testing & Quality**
+
+  - 304 tests passing (3 skipped edge cases)
+  - > 80% coverage across all components
+  - Non-blocking execution ensuring git operations never blocked
+  - Production-ready with comprehensive error handling
+
+  Resolves C.5 milestone - Post-Merge Hook Implementation
+
 ## 0.3.0
 
 ### Minor Changes
