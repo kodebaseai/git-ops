@@ -260,40 +260,237 @@ describe("GitHubAdapter", () => {
     });
   });
 
+  describe("PR operations", () => {
+    let adapter: GitHubAdapter;
+    const mockExecAsync = vi.mocked(execAsync);
+
+    beforeEach(() => {
+      adapter = new GitHubAdapter();
+      vi.clearAllMocks();
+    });
+
+    describe("createPR", () => {
+      it("should create a PR successfully", async () => {
+        // Mock git remote URL
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: "https://github.com/owner/repo.git",
+          stderr: "",
+          exitCode: 0,
+        });
+
+        // Mock gh pr create
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: "https://github.com/owner/repo/pull/123",
+          stderr: "",
+          exitCode: 0,
+        });
+
+        // Mock gh pr view
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: JSON.stringify({
+            number: 123,
+            state: "OPEN",
+            title: "Test PR",
+            body: "Test body",
+            url: "https://github.com/owner/repo/pull/123",
+            headRefName: "feature",
+            baseRefName: "main",
+            author: { login: "testuser" },
+            createdAt: "2025-01-01T00:00:00Z",
+            updatedAt: "2025-01-01T00:00:00Z",
+            isDraft: false,
+            labels: [],
+            assignees: [],
+            reviewRequests: [],
+            reviewDecision: null,
+            mergeable: "MERGEABLE",
+            mergeStateStatus: "CLEAN",
+          }),
+          stderr: "",
+          exitCode: 0,
+        });
+
+        const result = await adapter.createPR({
+          title: "Test PR",
+          body: "Test body",
+          repoPath: "/test",
+          baseBranch: "main",
+        });
+
+        expect(result.number).toBe(123);
+        expect(result.title).toBe("Test PR");
+        expect(mockExecAsync).toHaveBeenCalledTimes(3);
+      });
+
+      it("should handle PR creation failure", async () => {
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: "https://github.com/owner/repo.git",
+          stderr: "",
+          exitCode: 0,
+        });
+
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: "",
+          stderr: "PR creation failed",
+          exitCode: 1,
+        });
+
+        await expect(
+          adapter.createPR({
+            title: "Test",
+            repoPath: "/test",
+          }),
+        ).rejects.toThrow("Failed to create PR");
+      });
+    });
+
+    describe("createDraftPR", () => {
+      it("should create a draft PR successfully", async () => {
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: "https://github.com/owner/repo.git",
+          stderr: "",
+          exitCode: 0,
+        });
+
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: "https://github.com/owner/repo/pull/456",
+          stderr: "",
+          exitCode: 0,
+        });
+
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: JSON.stringify({
+            number: 456,
+            state: "OPEN",
+            title: "Draft PR",
+            body: "",
+            url: "https://github.com/owner/repo/pull/456",
+            headRefName: "feature",
+            baseRefName: "main",
+            author: { login: "testuser" },
+            createdAt: "2025-01-01T00:00:00Z",
+            updatedAt: "2025-01-01T00:00:00Z",
+            isDraft: true,
+            labels: [],
+            assignees: [],
+            reviewRequests: [],
+            reviewDecision: null,
+            mergeable: "MERGEABLE",
+            mergeStateStatus: "CLEAN",
+          }),
+          stderr: "",
+          exitCode: 0,
+        });
+
+        const result = await adapter.createDraftPR({
+          title: "Draft PR",
+          repoPath: "/test",
+        });
+
+        expect(result.isDraft).toBe(true);
+        expect(result.number).toBe(456);
+      });
+    });
+
+    describe("getPR", () => {
+      it("should get PR details successfully", async () => {
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: JSON.stringify({
+            number: 789,
+            state: "OPEN",
+            title: "Existing PR",
+            body: "PR body",
+            url: "https://github.com/owner/repo/pull/789",
+            headRefName: "feature",
+            baseRefName: "main",
+            author: { login: "testuser" },
+            createdAt: "2025-01-01T00:00:00Z",
+            updatedAt: "2025-01-01T00:00:00Z",
+            isDraft: false,
+            labels: [{ name: "bug" }, { name: "urgent" }],
+            assignees: [{ login: "user1" }],
+            reviewRequests: [{ login: "reviewer1" }],
+            reviewDecision: "APPROVED",
+            mergeable: "MERGEABLE",
+            mergeStateStatus: "CLEAN",
+          }),
+          stderr: "",
+          exitCode: 0,
+        });
+
+        const result = await adapter.getPR(789);
+
+        expect(result).not.toBeNull();
+        expect(result?.number).toBe(789);
+        expect(result?.labels).toEqual(["bug", "urgent"]);
+        expect(result?.reviewStatus).toBe("approved");
+      });
+
+      it("should return null for non-existent PR", async () => {
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: "",
+          stderr: "PR not found",
+          exitCode: 1,
+        });
+
+        const result = await adapter.getPR(999);
+        expect(result).toBeNull();
+      });
+    });
+
+    describe("mergePR", () => {
+      it("should merge PR successfully", async () => {
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: "Pull request merged",
+          stderr: "",
+          exitCode: 0,
+        });
+
+        await adapter.mergePR(123, {
+          method: "squash",
+          deleteBranch: true,
+        });
+
+        expect(mockExecAsync).toHaveBeenCalledWith(
+          "gh pr merge 123 --squash --delete-branch",
+        );
+      });
+
+      it("should handle merge failure", async () => {
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: "",
+          stderr: "Merge failed: conflicts",
+          exitCode: 1,
+        });
+
+        await expect(adapter.mergePR(123)).rejects.toThrow(
+          "Failed to merge PR",
+        );
+      });
+    });
+
+    describe("enableAutoMerge", () => {
+      it("should enable auto-merge successfully", async () => {
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: "Auto-merge enabled",
+          stderr: "",
+          exitCode: 0,
+        });
+
+        await adapter.enableAutoMerge(123, {
+          mergeMethod: "squash",
+          deleteBranch: true,
+        });
+
+        expect(mockExecAsync).toHaveBeenCalledWith(
+          "gh pr merge 123 --auto --squash --delete-branch",
+        );
+      });
+    });
+  });
+
   describe("unimplemented methods", () => {
     const adapter = new GitHubAdapter();
-
-    it("createPR should throw", async () => {
-      await expect(
-        adapter.createPR({
-          title: "Test",
-          repoPath: "/test",
-        }),
-      ).rejects.toThrow("Not implemented");
-    });
-
-    it("createDraftPR should throw", async () => {
-      await expect(
-        adapter.createDraftPR({
-          title: "Test",
-          repoPath: "/test",
-        }),
-      ).rejects.toThrow("Not implemented");
-    });
-
-    it("getPR should throw", async () => {
-      await expect(adapter.getPR(123)).rejects.toThrow("Not implemented");
-    });
-
-    it("mergePR should throw", async () => {
-      await expect(adapter.mergePR(123)).rejects.toThrow("Not implemented");
-    });
-
-    it("enableAutoMerge should throw", async () => {
-      await expect(adapter.enableAutoMerge(123)).rejects.toThrow(
-        "Not implemented",
-      );
-    });
 
     it("getBranch should throw", async () => {
       await expect(adapter.getBranch("main", "/test")).rejects.toThrow(

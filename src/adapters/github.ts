@@ -169,37 +169,192 @@ export class GitHubAdapter implements GitPlatformAdapter {
     }
   }
 
-  async createPR(_options: PRCreateOptions): Promise<PRInfo> {
-    throw new Error("Not implemented");
+  async createPR(options: PRCreateOptions): Promise<PRInfo> {
+    const args = [
+      "gh",
+      "pr",
+      "create",
+      "--repo",
+      await this.getRepoFromPath(options.repoPath),
+    ];
+
+    if (options.title) args.push("--title", options.title);
+    if (options.body) args.push("--body", options.body);
+    if (options.baseBranch) args.push("--base", options.baseBranch);
+    if (options.branch) args.push("--head", options.branch);
+    if (options.labels?.length) args.push("--label", options.labels.join(","));
+    if (options.assignees?.length)
+      args.push("--assignee", options.assignees.join(","));
+    if (options.reviewers?.length)
+      args.push("--reviewer", options.reviewers.join(","));
+    if (options.milestone) args.push("--milestone", options.milestone);
+
+    const { stdout, exitCode, stderr } = await execAsync(args.join(" "));
+
+    if (exitCode !== 0) {
+      throw new Error(`Failed to create PR: ${stderr || stdout}`);
+    }
+
+    // Parse PR URL from output to get PR number
+    const urlMatch = stdout.match(
+      /https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/,
+    );
+    if (!urlMatch?.[1]) {
+      throw new Error("Failed to parse PR number from gh CLI output");
+    }
+    const prNumber = Number.parseInt(urlMatch[1], 10);
+
+    return this.getPR(prNumber) as Promise<PRInfo>;
   }
 
-  async createDraftPR(_options: PRCreateOptions): Promise<PRInfo> {
-    throw new Error("Not implemented");
+  async createDraftPR(options: PRCreateOptions): Promise<PRInfo> {
+    const args = [
+      "gh",
+      "pr",
+      "create",
+      "--draft",
+      "--repo",
+      await this.getRepoFromPath(options.repoPath),
+    ];
+
+    if (options.title) args.push("--title", options.title);
+    if (options.body) args.push("--body", options.body);
+    if (options.baseBranch) args.push("--base", options.baseBranch);
+    if (options.branch) args.push("--head", options.branch);
+    if (options.labels?.length) args.push("--label", options.labels.join(","));
+    if (options.assignees?.length)
+      args.push("--assignee", options.assignees.join(","));
+    if (options.reviewers?.length)
+      args.push("--reviewer", options.reviewers.join(","));
+    if (options.milestone) args.push("--milestone", options.milestone);
+
+    const { stdout, exitCode, stderr } = await execAsync(args.join(" "));
+
+    if (exitCode !== 0) {
+      throw new Error(`Failed to create draft PR: ${stderr || stdout}`);
+    }
+
+    // Parse PR URL from output to get PR number
+    const urlMatch = stdout.match(
+      /https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/,
+    );
+    if (!urlMatch?.[1]) {
+      throw new Error("Failed to parse PR number from gh CLI output");
+    }
+    const prNumber = Number.parseInt(urlMatch[1], 10);
+
+    return this.getPR(prNumber) as Promise<PRInfo>;
   }
 
-  async getPR(_prIdentifier: string | number): Promise<PRInfo | null> {
-    throw new Error("Not implemented");
+  async getPR(prIdentifier: string | number): Promise<PRInfo | null> {
+    const { stdout, exitCode } = await execAsync(
+      `gh pr view ${prIdentifier} --json number,state,title,body,url,headRefName,baseRefName,author,createdAt,updatedAt,isDraft,labels,assignees,reviewRequests,reviewDecision,mergeable,mergeStateStatus`,
+    );
+
+    if (exitCode !== 0) {
+      return null; // PR not found
+    }
+
+    try {
+      const data = JSON.parse(stdout) as {
+        number: number;
+        state: string;
+        title: string;
+        body: string;
+        url: string;
+        headRefName: string;
+        baseRefName: string;
+        author: { login: string };
+        createdAt: string;
+        updatedAt: string;
+        isDraft: boolean;
+        labels: Array<{ name: string }>;
+        assignees: Array<{ login: string }>;
+        reviewRequests: Array<{ login: string }>;
+        reviewDecision: string | null;
+        mergeable: string;
+        mergeStateStatus: string;
+      };
+
+      return {
+        number: data.number,
+        state: data.state,
+        title: data.title,
+        body: data.body,
+        url: data.url,
+        sourceBranch: data.headRefName,
+        targetBranch: data.baseRefName,
+        author: data.author.login,
+        createdAt: new Date(data.createdAt),
+        updatedAt: new Date(data.updatedAt),
+        isDraft: data.isDraft,
+        labels: data.labels.map((l) => l.name),
+        assignees: data.assignees.map((a) => a.login),
+        reviewers: data.reviewRequests.map((r) => r.login),
+        reviewStatus: this.mapReviewDecision(data.reviewDecision),
+        mergeable: data.mergeable === "MERGEABLE",
+        hasConflicts: data.mergeStateStatus === "DIRTY",
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to parse PR data: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   async mergePR(
-    _prNumber: number,
-    _options?: {
+    prNumber: number,
+    options?: {
       method?: TMergeMethod;
       message?: string;
       deleteBranch?: boolean;
     },
   ): Promise<void> {
-    throw new Error("Not implemented");
+    const args = ["gh", "pr", "merge", String(prNumber)];
+
+    if (options?.method) {
+      args.push(`--${options.method}`);
+    }
+
+    if (options?.deleteBranch) {
+      args.push("--delete-branch");
+    }
+
+    if (options?.message) {
+      args.push("--body", options.message);
+    }
+
+    const { exitCode, stderr, stdout } = await execAsync(args.join(" "));
+
+    if (exitCode !== 0) {
+      throw new Error(`Failed to merge PR #${prNumber}: ${stderr || stdout}`);
+    }
   }
 
   async enableAutoMerge(
-    _prNumber: number,
-    _options?: {
+    prNumber: number,
+    options?: {
       mergeMethod?: TMergeMethod;
       deleteBranch?: boolean;
     },
   ): Promise<void> {
-    throw new Error("Not implemented");
+    const args = ["gh", "pr", "merge", String(prNumber), "--auto"];
+
+    if (options?.mergeMethod) {
+      args.push(`--${options.mergeMethod}`);
+    }
+
+    if (options?.deleteBranch) {
+      args.push("--delete-branch");
+    }
+
+    const { exitCode, stderr, stdout } = await execAsync(args.join(" "));
+
+    if (exitCode !== 0) {
+      throw new Error(
+        `Failed to enable auto-merge for PR #${prNumber}: ${stderr || stdout}`,
+      );
+    }
   }
 
   async getBranch(
@@ -219,5 +374,58 @@ export class GitHubAdapter implements GitPlatformAdapter {
 
   async isAvailable(): Promise<boolean> {
     throw new Error("Not implemented");
+  }
+
+  /**
+   * Get repository owner/name from local git repository path
+   *
+   * @param repoPath - Local repository path
+   * @returns Repository in format "owner/repo"
+   */
+  private async getRepoFromPath(repoPath: string): Promise<string> {
+    // Note: Using template literal here is safe because repoPath is a file system path
+    // that will be validated by git itself. Any invalid path will cause git to fail.
+    // For production use, consider using a library like shellwords for proper escaping.
+    const { stdout, exitCode } = await execAsync(
+      `git -C "${repoPath.replace(/"/g, '\\"')}" remote get-url origin`,
+    );
+
+    if (exitCode !== 0) {
+      throw new Error("Failed to get remote URL from repository");
+    }
+
+    // Parse owner/repo from remote URL
+    // Supports both HTTPS and SSH formats:
+    // - https://github.com/owner/repo.git
+    // - git@github.com:owner/repo.git
+    const match = stdout.match(/github\.com[:/]([^/]+\/[^/]+?)(\.git)?$/);
+
+    if (!match?.[1]) {
+      throw new Error(
+        `Could not parse GitHub repository from remote URL: ${stdout}`,
+      );
+    }
+
+    return match[1];
+  }
+
+  /**
+   * Map GitHub review decision to our review status type
+   */
+  private mapReviewDecision(
+    decision: string | null,
+  ): "approved" | "changes_requested" | "review_required" | "pending" {
+    if (!decision) return "pending";
+
+    switch (decision) {
+      case "APPROVED":
+        return "approved";
+      case "CHANGES_REQUESTED":
+        return "changes_requested";
+      case "REVIEW_REQUIRED":
+        return "review_required";
+      default:
+        return "pending";
+    }
   }
 }

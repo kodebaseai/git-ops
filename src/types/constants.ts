@@ -43,6 +43,7 @@ export const CReviewStatus = {
   APPROVED: "approved",
   CHANGES_REQUESTED: "changes_requested",
   COMMENTED: "commented",
+  REVIEW_REQUIRED: "review_required",
 } as const;
 
 export type TReviewStatus = (typeof CReviewStatus)[keyof typeof CReviewStatus];
