@@ -1,5 +1,56 @@
 # @kodebase/git-ops
 
+## 0.3.0
+
+### Minor Changes
+
+- [#146](https://github.com/kodebaseai/kodebase/pull/146) [`de47f61`](https://github.com/kodebaseai/kodebase/commit/de47f611d77c80e19351b5d3313c028f6bc27ef6) Thanks [@migcarva](https://github.com/migcarva)! - Core Hook System (C.4 Milestone) - Production-ready hook execution framework
+
+  ## What's New
+
+  Complete hook system implementation with execution framework, idempotency tracking, structured logging, and comprehensive testing.
+
+  ### Hook Execution Framework (C.4.1)
+
+  - **HookExecutor** with lifecycle callbacks (beforeExecute, afterExecute, onError)
+  - Non-blocking execution mode - hooks never block git operations
+  - Timeout support with configurable duration (default 30s)
+  - Graceful error handling with stdout/stderr capture
+  - Factory functions: `createHookExecutor()`, `createHookExecutorForType()`, `isHookEnabled()`
+
+  ### Idempotency System (C.4.2)
+
+  - **IdempotencyTracker** using event log inspection
+  - Prevents duplicate hook executions based on artifact event history
+  - Configurable retry logic for failed hooks (default 5min timeout)
+  - Status tracking (success/failed) with metadata support
+  - Event-based approach enables distributed idempotency
+
+  ### Hook Installation (C.4.3)
+
+  - **HookInstaller** with install/uninstall utilities
+  - Automatic backup/restore mechanism for existing hooks
+  - Force overwrite option with `.kodebase-backup` suffix
+  - Hook detection and validation
+  - Safe uninstallation with backup restoration
+
+  ### Structured Logging & Monitoring (C.4.4)
+
+  - **HookLogger** with structured JSON logging
+  - Log levels: debug, info, warn, error with priority-based filtering
+  - File-based logging with automatic rotation (max size/files configurable)
+  - Environment variable configuration via `KODEBASE_LOG_LEVEL`
+  - Performance metrics with sub-millisecond precision using `performance.now()`
+  - Optional integration - backwards compatible with console fallback
+
+  ### Integration Tests (C.4.5)
+
+  - 14 comprehensive E2E integration tests
+  - Complete workflow validation: install → execute → log → uninstall
+  - Component integration tests for HookInstaller + HookExecutor + HookLogger + IdempotencyTracker
+  - Parallel execution testing
+  - Backup/restore workflow validation
+
 ## 0.2.0
 
 ### Minor Changes
