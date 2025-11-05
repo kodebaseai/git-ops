@@ -18,6 +18,7 @@ export type {
   InstallResult,
   UninstallResult,
 } from "./hook-installer-types.js";
+export { HookLogger } from "./hook-logger.js";
 export { IdempotencyTracker } from "./idempotency-tracker.js";
 export type {
   HookExecutionMetadata,
@@ -25,6 +26,12 @@ export type {
   IdempotencyConfig,
   ShouldExecuteResult,
 } from "./idempotency-types.js";
+export type {
+  HookLogEntry,
+  HookLoggerConfig,
+  TLogLevel,
+} from "./logger-types.js";
+export { CLogLevel } from "./logger-types.js";
 export type {
   HookContext,
   HookErrorCallback,

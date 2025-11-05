@@ -17,6 +17,7 @@ export {
   getPRCreationDefaults,
 } from "./factory.js";
 export {
+  CLogLevel,
   createHookExecutor,
   createHookExecutorForType,
   createHookInstaller,
@@ -31,12 +32,16 @@ export {
   HookInstaller,
   type HookInstallerConfig,
   type HookLifecycleCallback,
+  type HookLogEntry,
+  HookLogger,
+  type HookLoggerConfig,
   type HookResult,
   type IdempotencyConfig,
   IdempotencyTracker,
   type InstallResult,
   isHookEnabled,
   type ShouldExecuteResult,
+  type TLogLevel,
   type UninstallResult,
 } from "./hooks/index.js";
 export type {

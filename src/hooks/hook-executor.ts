@@ -30,8 +30,11 @@ const DEFAULT_TIMEOUT = 30000;
  * ```
  */
 export class HookExecutor {
-  private readonly config: Required<Omit<HookExecutorConfig, "lifecycle">> & {
+  private readonly config: Required<
+    Omit<HookExecutorConfig, "lifecycle" | "logger">
+  > & {
     lifecycle?: HookExecutorConfig["lifecycle"];
+    logger?: HookExecutorConfig["logger"];
   };
 
   constructor(config: HookExecutorConfig = {}) {
@@ -39,6 +42,7 @@ export class HookExecutor {
       timeout: config.timeout ?? DEFAULT_TIMEOUT,
       nonBlocking: config.nonBlocking ?? true,
       logErrors: config.logErrors ?? true,
+      logger: config.logger,
       lifecycle: {
         beforeExecute: config.lifecycle?.beforeExecute,
         afterExecute: config.lifecycle?.afterExecute,
@@ -63,6 +67,11 @@ export class HookExecutor {
   ): Promise<HookResult> {
     const startTime = performance.now();
 
+    // Log hook start if logger provided
+    if (this.config.logger) {
+      this.config.logger.logStart(hookName, context.artifactId);
+    }
+
     try {
       // Call beforeExecute lifecycle hook if provided
       if (this.config.lifecycle?.beforeExecute) {
@@ -79,6 +88,14 @@ export class HookExecutor {
 
       const duration = performance.now() - startTime;
 
+      // Log success if logger provided
+      if (this.config.logger) {
+        this.config.logger.logSuccess(hookName, context.artifactId, duration, {
+          stdout: result.stdout,
+          stderr: result.stderr,
+        });
+      }
+
       return {
         success: true,
         duration,
@@ -89,13 +106,23 @@ export class HookExecutor {
       const duration = performance.now() - startTime;
       const err = error instanceof Error ? error : new Error(String(error));
 
+      // Log error if logger provided
+      if (this.config.logger) {
+        this.config.logger.logError(
+          hookName,
+          context.artifactId,
+          err,
+          duration,
+        );
+      }
+
       // Call onError lifecycle hook if provided
       if (this.config.lifecycle?.onError) {
         await this.config.lifecycle.onError(hookName, context, err);
       }
 
-      // Log error if configured
-      if (this.config.logErrors) {
+      // Log error if configured (fallback to console)
+      if (this.config.logErrors && !this.config.logger) {
         console.error(`Hook "${hookName}" failed:`, err.message);
       }
 

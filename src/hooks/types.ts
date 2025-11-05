@@ -2,6 +2,8 @@
  * Hook system types for git operations
  */
 
+import type { HookLogger } from "./hook-logger.js";
+
 /**
  * Context passed to hook executors
  */
@@ -72,6 +74,8 @@ export interface HookExecutorConfig {
   nonBlocking?: boolean;
   /** Log errors to console (default: true) */
   logErrors?: boolean;
+  /** Optional logger instance for structured logging */
+  logger?: HookLogger;
   /** Lifecycle callbacks */
   lifecycle?: {
     /** Called before hook execution */
