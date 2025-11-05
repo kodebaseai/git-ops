@@ -32,6 +32,15 @@ export type {
   TLogLevel,
 } from "./logger-types.js";
 export { CLogLevel } from "./logger-types.js";
+export {
+  createPostMergeDetector,
+  PostMergeDetector,
+} from "./post-merge-detector.js";
+export type {
+  MergeDetectionResult,
+  MergeMetadata,
+  PostMergeConfig,
+} from "./post-merge-types.js";
 export type {
   HookContext,
   HookErrorCallback,
