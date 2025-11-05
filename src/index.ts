@@ -4,6 +4,7 @@
  * Git platform abstraction for GitHub, GitLab, and Bitbucket operations
  */
 
+export { GitHubAdapter, type GitHubAdapterConfig } from "./adapters/github.js";
 export type {
   AuthStatus,
   Branch,
@@ -15,7 +16,6 @@ export type {
   TPRState,
   TReviewStatus,
 } from "./types/index.js";
-
 export {
   CGitPlatform,
   CMergeMethod,

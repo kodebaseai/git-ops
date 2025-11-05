@@ -33,3 +33,6 @@ logs/
 
 # Misc
 *.pem
+
+# Development scripts
+test-auth.mjs
