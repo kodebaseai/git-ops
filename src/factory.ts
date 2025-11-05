@@ -4,7 +4,7 @@
 
 import type { KodebaseConfig } from "@kodebase/config";
 import { GitHubAdapter, type GitHubAdapterConfig } from "./adapters/github.js";
-import { GitLabAdapter, type GitLabAdapterConfig } from "./adapters/gitlab.js";
+import { GitLabAdapter } from "./adapters/gitlab.js";
 import type { GitPlatformAdapter } from "./types/adapter.js";
 import { CGitPlatform } from "./types/constants.js";
 
@@ -104,28 +104,21 @@ export function createAdapter(config: KodebaseConfig): GitPlatformAdapter {
     }
 
     case CGitPlatform.GITLAB: {
+      // GitLab stub implementation - config validation for future use
       const gitlabConfig = config.gitOps?.platform?.gitlab;
       const tokenEnvVar = gitlabConfig?.token_env_var ?? "GITLAB_TOKEN";
-      const baseUrl = gitlabConfig?.api_url ?? "https://gitlab.com";
 
-      const adapterConfig: GitLabAdapterConfig = {
-        baseUrl,
-      };
-
-      if (authStrategy === "token" || authStrategy === "auto") {
+      if (authStrategy === "token") {
         const token = process.env[tokenEnvVar];
-        if (authStrategy === "token" && !token) {
+        if (!token) {
           throw new AdapterCreateError(
             `GitLab token not found. Expected environment variable: ${tokenEnvVar}. ` +
               `Set the token or change auth_strategy to "auto" or "cli".`,
           );
         }
-        if (token) {
-          adapterConfig.token = token;
-        }
       }
 
-      return new GitLabAdapter(adapterConfig);
+      return new GitLabAdapter();
     }
 
     case CGitPlatform.BITBUCKET:

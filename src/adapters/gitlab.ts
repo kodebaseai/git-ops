@@ -70,11 +70,6 @@ export class GitLabNotImplementedError extends Error {
  */
 export class GitLabAdapter implements GitPlatformAdapter {
   readonly platform: TGitPlatform = CGitPlatform.GITLAB;
-  private readonly config: GitLabAdapterConfig;
-
-  constructor(config: GitLabAdapterConfig = {}) {
-    this.config = config;
-  }
 
   async validateAuth(): Promise<AuthStatus> {
     // Detect GitLab context but return unimplemented status
