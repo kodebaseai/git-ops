@@ -5,6 +5,11 @@
  */
 
 export { GitHubAdapter, type GitHubAdapterConfig } from "./adapters/github.js";
+export {
+  GitLabAdapter,
+  type GitLabAdapterConfig,
+  GitLabNotImplementedError,
+} from "./adapters/gitlab.js";
 export type {
   AuthStatus,
   Branch,
