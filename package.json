@@ -31,6 +31,7 @@
     "lint:types": "attw --pack . --profile esm-only",
     "format": "biome format .",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "prepack": "pnpm lint:package"
   },
   "dependencies": {
@@ -41,7 +42,8 @@
     "@arethetypeswrong/cli": "^0.18.2",
     "@kodebase/typescript-config": "workspace:*",
     "@types/node": "^22.19.0",
-    "@vitest/coverage-istanbul": "^3.0.7",
+    "@vitest/coverage-istanbul": "^4.0.7",
+    "@vitest/coverage-v8": "^4.0.7",
     "publint": "^0.3.15",
     "vitest": "^4.0.7"
   }

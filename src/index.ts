@@ -16,6 +16,17 @@ export {
   getMergeDefaults,
   getPRCreationDefaults,
 } from "./factory.js";
+export {
+  createHookExecutor,
+  createHookExecutorForType,
+  type HookContext,
+  type HookErrorCallback,
+  HookExecutor,
+  type HookExecutorConfig,
+  type HookLifecycleCallback,
+  type HookResult,
+  isHookEnabled,
+} from "./hooks/index.js";
 export type {
   AuthStatus,
   Branch,
