@@ -10,6 +10,12 @@ export {
   type GitLabAdapterConfig,
   GitLabNotImplementedError,
 } from "./adapters/gitlab.js";
+export {
+  AdapterCreateError,
+  createAdapter,
+  getMergeDefaults,
+  getPRCreationDefaults,
+} from "./factory.js";
 export type {
   AuthStatus,
   Branch,
