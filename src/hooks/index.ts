@@ -50,6 +50,15 @@ export type {
   MergeMetadata,
   PostMergeConfig,
 } from "./post-merge-types.js";
+export {
+  createStrategyExecutor,
+  StrategyExecutor,
+} from "./strategy-executor.js";
+export type {
+  ExecuteStrategyOptions,
+  StrategyExecutionResult,
+  StrategyExecutorConfig,
+} from "./strategy-executor-types.js";
 export type {
   HookContext,
   HookErrorCallback,
