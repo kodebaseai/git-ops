@@ -183,7 +183,7 @@ export class HookExecutor {
    */
   private async executeWithTimeout(
     hookName: string,
-    context: HookContext,
+    _context: HookContext,
   ): Promise<{ stdout?: string; stderr?: string }> {
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {

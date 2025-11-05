@@ -11,6 +11,17 @@ import {
   isHookEnabled,
 } from "./hook-executor-factory.js";
 
+/**
+ * Internal type for accessing private HookExecutor properties in tests
+ */
+type HookExecutorInternal = {
+  config: {
+    timeout: number;
+    nonBlocking: boolean;
+    logErrors: boolean;
+  };
+};
+
 // Mock the loadConfig function
 vi.mock("@kodebase/config", async () => {
   const actual = await vi.importActual("@kodebase/config");
@@ -44,8 +55,12 @@ describe("HookExecutor Factory", () => {
         logErrors: false,
       });
 
-      expect((executor as any).config.timeout).toBe(60000);
-      expect((executor as any).config.logErrors).toBe(false);
+      expect((executor as unknown as HookExecutorInternal).config.timeout).toBe(
+        60000,
+      );
+      expect(
+        (executor as unknown as HookExecutorInternal).config.logErrors,
+      ).toBe(false);
     });
 
     it("respects non_blocking from config", async () => {
@@ -60,7 +75,9 @@ describe("HookExecutor Factory", () => {
 
       const executor = await createHookExecutor();
 
-      expect((executor as any).config.nonBlocking).toBe(false);
+      expect(
+        (executor as unknown as HookExecutorInternal).config.nonBlocking,
+      ).toBe(false);
     });
 
     it("respects log_errors from config", async () => {
@@ -75,7 +92,9 @@ describe("HookExecutor Factory", () => {
 
       const executor = await createHookExecutor();
 
-      expect((executor as any).config.logErrors).toBe(false);
+      expect(
+        (executor as unknown as HookExecutorInternal).config.logErrors,
+      ).toBe(false);
     });
   });
 
@@ -101,7 +120,9 @@ describe("HookExecutor Factory", () => {
 
       const executor = await createHookExecutorForType("post-merge");
 
-      expect((executor as any).config.nonBlocking).toBe(false);
+      expect(
+        (executor as unknown as HookExecutorInternal).config.nonBlocking,
+      ).toBe(false);
     });
 
     it("falls back to global non_blocking if hook-specific not set", async () => {
@@ -117,7 +138,9 @@ describe("HookExecutor Factory", () => {
 
       const executor = await createHookExecutorForType("post-merge");
 
-      expect((executor as any).config.nonBlocking).toBe(false);
+      expect(
+        (executor as unknown as HookExecutorInternal).config.nonBlocking,
+      ).toBe(false);
     });
 
     it("handles hyphenated hook names", async () => {
@@ -145,7 +168,9 @@ describe("HookExecutor Factory", () => {
         },
       );
 
-      expect((executor as any).config.logErrors).toBe(false);
+      expect(
+        (executor as unknown as HookExecutorInternal).config.logErrors,
+      ).toBe(false);
     });
   });
 

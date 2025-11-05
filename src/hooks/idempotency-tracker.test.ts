@@ -4,7 +4,52 @@
 
 import type { TEvent } from "@kodebase/core";
 import { beforeEach, describe, expect, it } from "vitest";
+import { CHookEvent, CHookTrigger } from "./constants.js";
 import { IdempotencyTracker } from "./idempotency-tracker.js";
+import type { HookExecutionMetadata } from "./idempotency-types.js";
+
+/**
+ * Helper to create a test event with custom event type
+ * Uses unknown as TEvent["event"] to bypass strict union type checking in tests
+ */
+function createTestEvent(
+  event: string,
+  timestamp: string,
+  actor: string,
+  trigger: string,
+  metadata: Record<string, unknown> | null = {},
+): TEvent {
+  return {
+    event: event as unknown as TEvent["event"],
+    timestamp,
+    actor,
+    trigger: trigger as unknown as TEvent["trigger"],
+    metadata: metadata as unknown as TEvent["metadata"],
+  };
+}
+
+/**
+ * Helper to create a hook execution event for tests
+ * Uses hook-specific constants instead of string literals
+ */
+function createHookExecutionEvent(
+  hookName: string,
+  status: "success" | "failed",
+  timestamp: string,
+  additionalMetadata: Partial<HookExecutionMetadata> = {},
+): TEvent {
+  return createTestEvent(
+    CHookEvent.HOOK_EXECUTED,
+    timestamp,
+    "agent.hooks",
+    CHookTrigger.HOOK_COMPLETED,
+    {
+      hook: hookName,
+      status,
+      ...additionalMetadata,
+    },
+  );
+}
 
 describe("IdempotencyTracker", () => {
   let tracker: IdempotencyTracker;
@@ -16,13 +61,12 @@ describe("IdempotencyTracker", () => {
   describe("shouldExecuteHook", () => {
     it("returns true when hook has never been executed", () => {
       const events: TEvent[] = [
-        {
-          event: "draft" as any,
-          timestamp: "2025-11-05T10:00:00Z",
-          actor: "Alice (alice@example.com)",
-          trigger: "artifact_created" as any,
-          metadata: {},
-        },
+        createTestEvent(
+          "draft",
+          "2025-11-05T10:00:00Z",
+          "Alice (alice@example.com)",
+          "artifact_created",
+        ),
       ];
 
       const result = tracker.shouldExecuteHook(events, "post-merge");
@@ -34,17 +78,12 @@ describe("IdempotencyTracker", () => {
 
     it("returns false when hook was executed successfully", () => {
       const events: TEvent[] = [
-        {
-          event: "hook_executed" as any,
-          timestamp: "2025-11-05T10:00:00Z",
-          actor: "agent.hooks",
-          trigger: "hook_completed" as any,
-          metadata: {
-            hook: "post-merge",
-            status: "success",
-            duration: 1000,
-          },
-        },
+        createHookExecutionEvent(
+          "post-merge",
+          "success",
+          "2025-11-05T10:00:00Z",
+          { duration: 1000 },
+        ),
       ];
 
       const result = tracker.shouldExecuteHook(events, "post-merge");
@@ -59,18 +98,15 @@ describe("IdempotencyTracker", () => {
     it("returns false when hook failed recently (within retry timeout)", () => {
       const now = "2025-11-05T10:03:00Z"; // 3 minutes after failure
       const events: TEvent[] = [
-        {
-          event: "hook_executed" as any,
-          timestamp: "2025-11-05T10:00:00Z",
-          actor: "agent.hooks",
-          trigger: "hook_completed" as any,
-          metadata: {
-            hook: "post-merge",
-            status: "failed",
+        createHookExecutionEvent(
+          "post-merge",
+          "failed",
+          "2025-11-05T10:00:00Z",
+          {
             duration: 500,
             error: "Connection timeout",
           },
-        },
+        ),
       ];
 
       const result = tracker.shouldExecuteHook(events, "post-merge", now);
@@ -83,17 +119,14 @@ describe("IdempotencyTracker", () => {
     it("returns true when hook failed and retry timeout has passed", () => {
       const now = "2025-11-05T10:10:00Z"; // 10 minutes after failure (> 5 min default)
       const events: TEvent[] = [
-        {
-          event: "hook_executed" as any,
-          timestamp: "2025-11-05T10:00:00Z",
-          actor: "agent.hooks",
-          trigger: "hook_completed" as any,
-          metadata: {
-            hook: "post-merge",
-            status: "failed",
+        createHookExecutionEvent(
+          "post-merge",
+          "failed",
+          "2025-11-05T10:00:00Z",
+          {
             error: "Network error",
           },
-        },
+        ),
       ];
 
       const result = tracker.shouldExecuteHook(events, "post-merge", now);
@@ -107,16 +140,11 @@ describe("IdempotencyTracker", () => {
       const customTracker = new IdempotencyTracker({ retryTimeout: 60000 }); // 1 minute
       const now = "2025-11-05T10:02:00Z"; // 2 minutes after failure
       const events: TEvent[] = [
-        {
-          event: "hook_executed" as any,
-          timestamp: "2025-11-05T10:00:00Z",
-          actor: "agent.hooks",
-          trigger: "hook_completed" as any,
-          metadata: {
-            hook: "post-merge",
-            status: "failed",
-          },
-        },
+        createHookExecutionEvent(
+          "post-merge",
+          "failed",
+          "2025-11-05T10:00:00Z",
+        ),
       ];
 
       const result = customTracker.shouldExecuteHook(events, "post-merge", now);
@@ -128,16 +156,11 @@ describe("IdempotencyTracker", () => {
     it("returns false when retry is disabled and hook failed", () => {
       const noRetryTracker = new IdempotencyTracker({ allowRetry: false });
       const events: TEvent[] = [
-        {
-          event: "hook_executed" as any,
-          timestamp: "2025-11-05T10:00:00Z",
-          actor: "agent.hooks",
-          trigger: "hook_completed" as any,
-          metadata: {
-            hook: "post-merge",
-            status: "failed",
-          },
-        },
+        createHookExecutionEvent(
+          "post-merge",
+          "failed",
+          "2025-11-05T10:00:00Z",
+        ),
       ];
 
       const result = noRetryTracker.shouldExecuteHook(events, "post-merge");
@@ -149,27 +172,17 @@ describe("IdempotencyTracker", () => {
     it("handles multiple executions and uses the most recent", () => {
       const now = "2025-11-05T10:10:00Z";
       const events: TEvent[] = [
-        {
-          event: "hook_executed" as any,
-          timestamp: "2025-11-05T09:00:00Z",
-          actor: "agent.hooks",
-          trigger: "hook_completed" as any,
-          metadata: {
-            hook: "post-merge",
-            status: "failed",
-          },
-        },
-        {
-          event: "hook_executed" as any,
-          timestamp: "2025-11-05T10:00:00Z",
-          actor: "agent.hooks",
-          trigger: "hook_completed" as any,
-          metadata: {
-            hook: "post-merge",
-            status: "success",
-            duration: 1200,
-          },
-        },
+        createHookExecutionEvent(
+          "post-merge",
+          "failed",
+          "2025-11-05T09:00:00Z",
+        ),
+        createHookExecutionEvent(
+          "post-merge",
+          "success",
+          "2025-11-05T10:00:00Z",
+          { duration: 1200 },
+        ),
       ];
 
       const result = tracker.shouldExecuteHook(events, "post-merge", now);
@@ -181,16 +194,11 @@ describe("IdempotencyTracker", () => {
 
     it("ignores hooks with different names", () => {
       const events: TEvent[] = [
-        {
-          event: "hook_executed" as any,
-          timestamp: "2025-11-05T10:00:00Z",
-          actor: "agent.hooks",
-          trigger: "hook_completed" as any,
-          metadata: {
-            hook: "pre-commit",
-            status: "success",
-          },
-        },
+        createHookExecutionEvent(
+          "pre-commit",
+          "success",
+          "2025-11-05T10:00:00Z",
+        ),
       ];
 
       const result = tracker.shouldExecuteHook(events, "post-merge");
@@ -201,20 +209,18 @@ describe("IdempotencyTracker", () => {
 
     it("ignores non-hook events", () => {
       const events: TEvent[] = [
-        {
-          event: "draft" as any,
-          timestamp: "2025-11-05T10:00:00Z",
-          actor: "Alice (alice@example.com)",
-          trigger: "artifact_created" as any,
-          metadata: {},
-        },
-        {
-          event: "in_progress" as any,
-          timestamp: "2025-11-05T10:05:00Z",
-          actor: "Bob (bob@example.com)",
-          trigger: "work_started" as any,
-          metadata: {},
-        },
+        createTestEvent(
+          "draft",
+          "2025-11-05T10:00:00Z",
+          "Alice (alice@example.com)",
+          "artifact_created",
+        ),
+        createTestEvent(
+          "in_progress",
+          "2025-11-05T10:05:00Z",
+          "Bob (bob@example.com)",
+          "work_started",
+        ),
       ];
 
       const result = tracker.shouldExecuteHook(events, "post-merge");
@@ -236,14 +242,16 @@ describe("IdempotencyTracker", () => {
         },
       );
 
-      expect(event.event).toBe("hook_executed");
+      expect(event.event).toBe(CHookEvent.HOOK_EXECUTED);
       expect(event.actor).toBe("agent.hooks");
-      expect(event.trigger).toBe("hook_completed");
+      expect(event.trigger).toBe(CHookTrigger.HOOK_COMPLETED);
       expect(event.timestamp).toBeDefined();
-      expect((event.metadata as any).hook).toBe("post-merge");
-      expect((event.metadata as any).status).toBe("success");
-      expect((event.metadata as any).duration).toBe(1250);
-      expect((event.metadata as any).artifactEvent).toBe("completed");
+
+      const metadata = event.metadata as unknown as HookExecutionMetadata;
+      expect(metadata.hook).toBe("post-merge");
+      expect(metadata.status).toBe("success");
+      expect(metadata.duration).toBe(1250);
+      expect(metadata.artifactEvent).toBe("completed");
     });
 
     it("creates event with failed status and error", () => {
@@ -257,8 +265,9 @@ describe("IdempotencyTracker", () => {
         },
       );
 
-      expect((event.metadata as any).status).toBe("failed");
-      expect((event.metadata as any).error).toBe("Validation failed");
+      const metadata = event.metadata as unknown as HookExecutionMetadata;
+      expect(metadata.status).toBe("failed");
+      expect(metadata.error).toBe("Validation failed");
     });
 
     it("creates event with minimal metadata", () => {
@@ -268,9 +277,11 @@ describe("IdempotencyTracker", () => {
         "agent.hooks",
       );
 
-      expect(event.event).toBe("hook_executed");
-      expect((event.metadata as any).hook).toBe("post-checkout");
-      expect((event.metadata as any).status).toBe("success");
+      expect(event.event).toBe(CHookEvent.HOOK_EXECUTED);
+
+      const metadata = event.metadata as unknown as HookExecutionMetadata;
+      expect(metadata.hook).toBe("post-checkout");
+      expect(metadata.status).toBe("success");
     });
 
     it("generates ISO timestamp", () => {
@@ -290,28 +301,18 @@ describe("IdempotencyTracker", () => {
     it("tracks multiple attempts and uses most recent status", () => {
       const now = "2025-11-05T10:15:00Z";
       const events: TEvent[] = [
-        {
-          event: "hook_executed" as any,
-          timestamp: "2025-11-05T10:00:00Z",
-          actor: "agent.hooks",
-          trigger: "hook_completed" as any,
-          metadata: {
-            hook: "post-merge",
-            status: "failed",
-            error: "Timeout",
-          },
-        },
-        {
-          event: "hook_executed" as any,
-          timestamp: "2025-11-05T10:10:00Z",
-          actor: "agent.hooks",
-          trigger: "hook_completed" as any,
-          metadata: {
-            hook: "post-merge",
-            status: "failed",
-            error: "Network error",
-          },
-        },
+        createHookExecutionEvent(
+          "post-merge",
+          "failed",
+          "2025-11-05T10:00:00Z",
+          { error: "Timeout" },
+        ),
+        createHookExecutionEvent(
+          "post-merge",
+          "failed",
+          "2025-11-05T10:10:00Z",
+          { error: "Network error" },
+        ),
       ];
 
       const result = tracker.shouldExecuteHook(events, "post-merge", now);
@@ -323,26 +324,16 @@ describe("IdempotencyTracker", () => {
 
     it("prevents execution if latest attempt succeeded after failure", () => {
       const events: TEvent[] = [
-        {
-          event: "hook_executed" as any,
-          timestamp: "2025-11-05T10:00:00Z",
-          actor: "agent.hooks",
-          trigger: "hook_completed" as any,
-          metadata: {
-            hook: "post-merge",
-            status: "failed",
-          },
-        },
-        {
-          event: "hook_executed" as any,
-          timestamp: "2025-11-05T10:10:00Z",
-          actor: "agent.hooks",
-          trigger: "hook_completed" as any,
-          metadata: {
-            hook: "post-merge",
-            status: "success",
-          },
-        },
+        createHookExecutionEvent(
+          "post-merge",
+          "failed",
+          "2025-11-05T10:00:00Z",
+        ),
+        createHookExecutionEvent(
+          "post-merge",
+          "success",
+          "2025-11-05T10:10:00Z",
+        ),
       ];
 
       const result = tracker.shouldExecuteHook(events, "post-merge");
@@ -362,13 +353,13 @@ describe("IdempotencyTracker", () => {
 
     it("handles invalid event metadata gracefully", () => {
       const events: TEvent[] = [
-        {
-          event: "hook_executed" as any,
-          timestamp: "2025-11-05T10:00:00Z",
-          actor: "agent.hooks",
-          trigger: "hook_completed" as any,
-          metadata: null as any,
-        },
+        createTestEvent(
+          CHookEvent.HOOK_EXECUTED,
+          "2025-11-05T10:00:00Z",
+          "agent.hooks",
+          CHookTrigger.HOOK_COMPLETED,
+          null,
+        ),
       ];
 
       // Should not crash, treat as if hook never executed

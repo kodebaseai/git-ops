@@ -6,6 +6,7 @@
  */
 
 import type { TEvent } from "@kodebase/core";
+import { CHookEvent, CHookTrigger } from "./constants.js";
 import type {
   HookExecutionMetadata,
   IdempotencyConfig,
@@ -164,13 +165,13 @@ export class IdempotencyTracker {
   ): TEvent {
     const now = new Date().toISOString();
 
-    // Custom event type extending TEvent - event:'hook_executed' is not in standard set
+    // Custom event type extending TEvent - uses hook-specific constants
     // This will be stored in artifact event log with custom metadata
     return {
-      event: "hook_executed" as unknown as TEvent["event"],
+      event: CHookEvent.HOOK_EXECUTED as unknown as TEvent["event"],
       timestamp: now,
       actor,
-      trigger: "hook_completed" as unknown as TEvent["trigger"],
+      trigger: CHookTrigger.HOOK_COMPLETED as unknown as TEvent["trigger"],
       metadata: {
         hook: hookName,
         status,
@@ -193,8 +194,8 @@ export class IdempotencyTracker {
     return events
       .map((event, index) => ({ event, index }))
       .filter((item) => {
-        // Check if this is a hook execution event (custom event type)
-        if (item.event.event !== "hook_executed") {
+        // Check if this is a hook execution event (uses hook-specific constant)
+        if (item.event.event !== CHookEvent.HOOK_EXECUTED) {
           return false;
         }
 

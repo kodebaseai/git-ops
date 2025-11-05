@@ -6,6 +6,37 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HookExecutor } from "./hook-executor.js";
 import type { HookContext } from "./types.js";
 
+/**
+ * Internal type for accessing private HookExecutor methods/properties in tests
+ * This is a representation-only type - does not extend HookExecutor to avoid private property conflicts
+ */
+type HookExecutorInternal = {
+  executeWithTimeout: (
+    name: string,
+    ctx: HookContext,
+  ) => Promise<{ stdout?: string; stderr?: string }>;
+  config: {
+    timeout: number;
+    nonBlocking: boolean;
+    logErrors: boolean;
+    lifecycle?: {
+      beforeExecute?: (
+        hookName: string,
+        context: HookContext,
+      ) => Promise<void> | void;
+      afterExecute?: (
+        hookName: string,
+        context: HookContext,
+      ) => Promise<void> | void;
+      onError?: (
+        hookName: string,
+        context: HookContext,
+        error: Error,
+      ) => Promise<void> | void;
+    };
+  };
+};
+
 describe("HookExecutor", () => {
   let executor: HookExecutor;
   let mockContext: HookContext;
@@ -58,9 +89,10 @@ describe("HookExecutor", () => {
     it("catches errors in non-blocking mode (default)", async () => {
       // Temporarily override executeWithTimeout to simulate failure
       const failingExecutor = new HookExecutor();
-      vi.spyOn(failingExecutor as any, "executeWithTimeout").mockRejectedValue(
-        new Error("Hook failed"),
-      );
+      vi.spyOn(
+        failingExecutor as unknown as HookExecutorInternal,
+        "executeWithTimeout",
+      ).mockRejectedValue(new Error("Hook failed"));
 
       const result = await failingExecutor.executeHook(
         "failing-hook",
@@ -74,9 +106,10 @@ describe("HookExecutor", () => {
 
     it("does not throw errors in non-blocking mode", async () => {
       const failingExecutor = new HookExecutor({ nonBlocking: true });
-      vi.spyOn(failingExecutor as any, "executeWithTimeout").mockRejectedValue(
-        new Error("Hook failed"),
-      );
+      vi.spyOn(
+        failingExecutor as unknown as HookExecutorInternal,
+        "executeWithTimeout",
+      ).mockRejectedValue(new Error("Hook failed"));
 
       await expect(
         failingExecutor.executeHook("failing-hook", mockContext),
@@ -85,9 +118,10 @@ describe("HookExecutor", () => {
 
     it("throws errors in blocking mode", async () => {
       const blockingExecutor = new HookExecutor({ nonBlocking: false });
-      vi.spyOn(blockingExecutor as any, "executeWithTimeout").mockRejectedValue(
-        new Error("Hook failed"),
-      );
+      vi.spyOn(
+        blockingExecutor as unknown as HookExecutorInternal,
+        "executeWithTimeout",
+      ).mockRejectedValue(new Error("Hook failed"));
 
       await expect(
         blockingExecutor.executeHook("failing-hook", mockContext),
@@ -98,17 +132,24 @@ describe("HookExecutor", () => {
   describe("Timeout support", () => {
     it("uses default timeout of 30 seconds", async () => {
       const defaultExecutor = new HookExecutor();
-      expect((defaultExecutor as any).config.timeout).toBe(30000);
+      expect(
+        (defaultExecutor as unknown as HookExecutorInternal).config.timeout,
+      ).toBe(30000);
     });
 
     it("uses custom timeout when provided", async () => {
       const customExecutor = new HookExecutor({ timeout: 5000 });
-      expect((customExecutor as any).config.timeout).toBe(5000);
+      expect(
+        (customExecutor as unknown as HookExecutorInternal).config.timeout,
+      ).toBe(5000);
     });
 
     it("times out when hook exceeds timeout", async () => {
       const timeoutExecutor = new HookExecutor({ timeout: 100 });
-      vi.spyOn(timeoutExecutor as any, "executeWithTimeout").mockImplementation(
+      vi.spyOn(
+        timeoutExecutor as unknown as HookExecutorInternal,
+        "executeWithTimeout",
+      ).mockImplementation(
         () =>
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error("Timeout")), 150),
@@ -156,7 +197,7 @@ describe("HookExecutor", () => {
         lifecycle: { onError },
       });
       vi.spyOn(
-        lifecycleExecutor as any,
+        lifecycleExecutor as unknown as HookExecutorInternal,
         "executeWithTimeout",
       ).mockRejectedValue(new Error("Hook failed"));
 
@@ -176,7 +217,7 @@ describe("HookExecutor", () => {
         lifecycle: { afterExecute },
       });
       vi.spyOn(
-        lifecycleExecutor as any,
+        lifecycleExecutor as unknown as HookExecutorInternal,
         "executeWithTimeout",
       ).mockRejectedValue(new Error("Hook failed"));
 
@@ -210,9 +251,10 @@ describe("HookExecutor", () => {
         .spyOn(console, "error")
         .mockImplementation(() => {});
       const failingExecutor = new HookExecutor();
-      vi.spyOn(failingExecutor as any, "executeWithTimeout").mockRejectedValue(
-        new Error("Hook failed"),
-      );
+      vi.spyOn(
+        failingExecutor as unknown as HookExecutorInternal,
+        "executeWithTimeout",
+      ).mockRejectedValue(new Error("Hook failed"));
 
       await failingExecutor.executeHook("failing-hook", mockContext);
 
@@ -229,9 +271,10 @@ describe("HookExecutor", () => {
         .spyOn(console, "error")
         .mockImplementation(() => {});
       const failingExecutor = new HookExecutor({ logErrors: false });
-      vi.spyOn(failingExecutor as any, "executeWithTimeout").mockRejectedValue(
-        new Error("Hook failed"),
-      );
+      vi.spyOn(
+        failingExecutor as unknown as HookExecutorInternal,
+        "executeWithTimeout",
+      ).mockRejectedValue(new Error("Hook failed"));
 
       await failingExecutor.executeHook("failing-hook", mockContext);
 
@@ -242,9 +285,10 @@ describe("HookExecutor", () => {
 
     it("converts non-Error thrown values to Error", async () => {
       const failingExecutor = new HookExecutor();
-      vi.spyOn(failingExecutor as any, "executeWithTimeout").mockRejectedValue(
-        "String error",
-      );
+      vi.spyOn(
+        failingExecutor as unknown as HookExecutorInternal,
+        "executeWithTimeout",
+      ).mockRejectedValue("String error");
 
       const result = await failingExecutor.executeHook(
         "failing-hook",
@@ -269,11 +313,11 @@ describe("HookExecutor", () => {
 
     it("executes hooks independently - one failure doesn't affect others", async () => {
       const parallelExecutor = new HookExecutor();
-      const originalMethod = (parallelExecutor as any).executeWithTimeout.bind(
-        parallelExecutor,
-      );
+      const originalMethod = (
+        parallelExecutor as unknown as HookExecutorInternal
+      ).executeWithTimeout.bind(parallelExecutor);
       vi.spyOn(
-        parallelExecutor as any,
+        parallelExecutor as unknown as HookExecutorInternal,
         "executeWithTimeout",
       ).mockImplementation((hookName: string) => {
         if (hookName === "failing-hook") {
@@ -322,10 +366,10 @@ describe("HookExecutor", () => {
     it("continues execution after failure in non-blocking mode", async () => {
       const sequentialExecutor = new HookExecutor();
       const originalMethod = (
-        sequentialExecutor as any
+        sequentialExecutor as unknown as HookExecutorInternal
       ).executeWithTimeout.bind(sequentialExecutor);
       vi.spyOn(
-        sequentialExecutor as any,
+        sequentialExecutor as unknown as HookExecutorInternal,
         "executeWithTimeout",
       ).mockImplementation((hookName: string) => {
         if (hookName === "failing-hook") {
@@ -348,11 +392,11 @@ describe("HookExecutor", () => {
 
     it("stops execution after failure in blocking mode", async () => {
       const blockingExecutor = new HookExecutor({ nonBlocking: false });
-      const originalMethod = (blockingExecutor as any).executeWithTimeout.bind(
-        blockingExecutor,
-      );
+      const originalMethod = (
+        blockingExecutor as unknown as HookExecutorInternal
+      ).executeWithTimeout.bind(blockingExecutor);
       vi.spyOn(
-        blockingExecutor as any,
+        blockingExecutor as unknown as HookExecutorInternal,
         "executeWithTimeout",
       ).mockImplementation((hookName: string) => {
         if (hookName === "failing-hook") {
