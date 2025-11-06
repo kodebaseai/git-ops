@@ -43,6 +43,11 @@ export type {
 } from "./logger-types.js";
 export { CLogLevel } from "./logger-types.js";
 export { PostCheckoutDetector } from "./post-checkout-detector.js";
+export { PostCheckoutOrchestrator } from "./post-checkout-orchestrator.js";
+export type {
+  PostCheckoutOrchestratorConfig,
+  PostCheckoutOrchestratorResult,
+} from "./post-checkout-orchestrator-types.js";
 export type {
   CheckoutDetectionResult,
   CheckoutMetadata,

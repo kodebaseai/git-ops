@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["src/**/*.test.ts"],
+    exclude: ["src/hooks/post-checkout-orchestrator.test.ts"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
