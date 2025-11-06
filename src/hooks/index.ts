@@ -71,6 +71,13 @@ export type {
   MergeMetadata,
   PostMergeConfig,
 } from "./post-merge-types.js";
+export type {
+  PrePushValidationOptions,
+  PrePushValidationResult,
+  PrePushWarning,
+  PrePushWarningType,
+} from "./pre-push-validator.js";
+export { validatePrePush } from "./pre-push-validator.js";
 export {
   createStrategyExecutor,
   StrategyExecutor,

@@ -10,8 +10,18 @@ export default defineConfig({
       "src/hooks/post-checkout.integration.test.ts",
     ],
     coverage: {
-      provider: "v8",
-      reporter: ["text", "json", "html"],
+      provider: "istanbul",
+      reporter: [
+        "text",
+        "text-summary",
+        "lcov",
+        [
+          "json",
+          {
+            file: "../coverage.json",
+          },
+        ],
+      ],
       exclude: ["**/*.test.ts", "**/dist/**", "**/node_modules/**"],
     },
   },
