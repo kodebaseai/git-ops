@@ -98,6 +98,13 @@ export type {
 export type { BranchValidationResult } from "./validation/branch-validator.js";
 export { BranchValidator } from "./validation/branch-validator.js";
 export type {
+  PreCommitError,
+  PreCommitErrorType,
+  PreCommitValidationOptions,
+  PreCommitValidationResult,
+} from "./validation/pre-commit-validator.js";
+export { validatePreCommit } from "./validation/pre-commit-validator.js";
+export type {
   PrePushValidationOptions,
   PrePushValidationResult,
   PrePushWarning,
