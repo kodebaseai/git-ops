@@ -45,6 +45,7 @@
     "@types/node": "^22.19.0",
     "@vitest/coverage-istanbul": "^4.0.7",
     "@vitest/coverage-v8": "^4.0.7",
+    "memfs": "^4.50.0",
     "publint": "^0.3.15",
     "vitest": "^4.0.7",
     "zod": "^4.1.12"

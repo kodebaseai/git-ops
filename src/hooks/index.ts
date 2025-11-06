@@ -12,6 +12,14 @@ export type {
   HookLifecycleCallback,
   HookResult,
 } from "../utils/types.js";
+export type {
+  ImpactedArtifact,
+  ImpactOperation,
+  ImpactReport,
+  ImpactType,
+} from "./analysis/impact-analyzer.js";
+// Analysis
+export { ImpactAnalyzer } from "./analysis/impact-analyzer.js";
 // Cascade
 export { createCascadeCommit } from "./cascade/cascade-commit.js";
 export type {
