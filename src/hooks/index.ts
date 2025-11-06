@@ -38,6 +38,12 @@ export type {
   TLogLevel,
 } from "./logger-types.js";
 export { CLogLevel } from "./logger-types.js";
+export { PostCheckoutDetector } from "./post-checkout-detector.js";
+export type {
+  CheckoutDetectionResult,
+  CheckoutMetadata,
+  PostCheckoutConfig,
+} from "./post-checkout-types.js";
 export {
   createPostMergeDetector,
   PostMergeDetector,
