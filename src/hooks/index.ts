@@ -2,6 +2,8 @@
  * Hook execution framework for git operations
  */
 
+export type { BranchValidationResult } from "./branch-validator.js";
+export { BranchValidator } from "./branch-validator.js";
 export { createCascadeCommit } from "./cascade-commit.js";
 export type {
   CascadeCommitAttribution,

@@ -38,9 +38,15 @@ export interface CheckoutMetadata {
   isNewBranch: boolean;
 
   /**
-   * Artifact IDs extracted from branch name
+   * Artifact IDs extracted and validated from branch name
    */
   artifactIds: string[];
+
+  /**
+   * Artifact IDs that were found in branch name but don't exist in artifacts directory
+   * Only populated when validation is enabled
+   */
+  invalidArtifactIds?: string[];
 }
 
 /**

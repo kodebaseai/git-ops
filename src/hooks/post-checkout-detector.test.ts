@@ -12,6 +12,51 @@ import { PostCheckoutDetector } from "./post-checkout-detector.js";
 describe("PostCheckoutDetector", () => {
   let tempDir: string;
   let gitRoot: string;
+  let artifactsRoot: string;
+
+  /**
+   * Helper to create a test artifact
+   */
+  async function createArtifact(id: string): Promise<void> {
+    const segments = id.split(".");
+    const letter = segments[0];
+    const slug = `${letter}.test`;
+
+    if (segments.length === 1) {
+      // Initiative: A.yml
+      const dir = path.join(artifactsRoot, slug);
+      await fs.promises.mkdir(dir, { recursive: true });
+      await fs.promises.writeFile(
+        path.join(dir, `${letter}.yml`),
+        `metadata:\n  title: Test ${id}\n`,
+      );
+    } else if (segments.length === 2) {
+      // Milestone: A.1.yml
+      const initiativeDir = path.join(artifactsRoot, slug);
+      const milestoneSlug = `${id}.test`;
+      const milestoneDir = path.join(initiativeDir, milestoneSlug);
+      await fs.promises.mkdir(milestoneDir, { recursive: true });
+      await fs.promises.writeFile(
+        path.join(milestoneDir, `${id}.yml`),
+        `metadata:\n  title: Test ${id}\n`,
+      );
+    } else {
+      // Issue: A.1.2.test.yml
+      const initiativeSlug = `${letter}.test`;
+      const milestoneId = `${letter}.${segments[1]}`;
+      const milestoneSlug = `${milestoneId}.test`;
+      const milestoneDir = path.join(
+        artifactsRoot,
+        initiativeSlug,
+        milestoneSlug,
+      );
+      await fs.promises.mkdir(milestoneDir, { recursive: true });
+      await fs.promises.writeFile(
+        path.join(milestoneDir, `${id}.test.yml`),
+        `metadata:\n  title: Test ${id}\n`,
+      );
+    }
+  }
 
   beforeEach(async () => {
     // Create temporary git repository for testing
@@ -19,6 +64,7 @@ describe("PostCheckoutDetector", () => {
       path.join(os.tmpdir(), "post-checkout-"),
     );
     gitRoot = tempDir;
+    artifactsRoot = path.join(tempDir, ".kodebase", "artifacts");
 
     // Initialize git repo
     execSync("git init", { cwd: gitRoot });
@@ -37,7 +83,12 @@ describe("PostCheckoutDetector", () => {
   });
 
   describe("Branch checkout detection", () => {
-    it("should detect new branch creation", async () => {
+    it("should detect new branch creation with valid artifact", async () => {
+      // Create the artifact first
+      await createArtifact("C");
+      await createArtifact("C.1");
+      await createArtifact("C.1.2");
+
       const detector = new PostCheckoutDetector({ gitRoot });
 
       // Create new branch C.1.2
@@ -58,7 +109,12 @@ describe("PostCheckoutDetector", () => {
       expect(result.metadata?.artifactIds).toEqual(["C.1.2"]);
     });
 
-    it("should detect existing branch checkout", async () => {
+    it("should detect existing branch checkout with valid artifact", async () => {
+      // Create the artifact first
+      await createArtifact("C");
+      await createArtifact("C.1");
+      await createArtifact("C.1.2");
+
       const detector = new PostCheckoutDetector({ gitRoot });
 
       // Create and switch to new branch
@@ -125,8 +181,13 @@ describe("PostCheckoutDetector", () => {
     });
   });
 
-  describe("Artifact ID extraction", () => {
-    it("should extract single artifact ID from branch name", async () => {
+  describe("Artifact ID extraction and validation", () => {
+    it("should extract and validate single artifact ID from branch name", async () => {
+      // Create the artifact first
+      await createArtifact("C");
+      await createArtifact("C.1");
+      await createArtifact("C.1.5");
+
       const detector = new PostCheckoutDetector({ gitRoot });
 
       execSync("git checkout -b C.1.5", { cwd: gitRoot });
@@ -136,10 +197,17 @@ describe("PostCheckoutDetector", () => {
 
       const result = await detector.detectCheckout(sha, sha, 1);
 
+      expect(result.shouldExecute).toBe(true);
       expect(result.metadata?.artifactIds).toEqual(["C.1.5"]);
     });
 
-    it("should extract multiple artifact IDs from branch name", async () => {
+    it("should extract and validate multiple artifact IDs from branch name", async () => {
+      // Create the artifacts
+      await createArtifact("C");
+      await createArtifact("C.1");
+      await createArtifact("C.1.2");
+      await createArtifact("C.1.3");
+
       const detector = new PostCheckoutDetector({ gitRoot });
 
       execSync("git checkout -b C.1.2-C.1.3", { cwd: gitRoot });
@@ -149,10 +217,17 @@ describe("PostCheckoutDetector", () => {
 
       const result = await detector.detectCheckout(sha, sha, 1);
 
+      expect(result.shouldExecute).toBe(true);
       expect(result.metadata?.artifactIds).toEqual(["C.1.2", "C.1.3"]);
     });
 
     it("should extract nested artifact IDs (C.4.1.2 format)", async () => {
+      // Create the artifacts
+      await createArtifact("C");
+      await createArtifact("C.4");
+      await createArtifact("C.4.1");
+      await createArtifact("C.4.1.2");
+
       const detector = new PostCheckoutDetector({ gitRoot });
 
       execSync("git checkout -b C.4.1.2", { cwd: gitRoot });
@@ -162,10 +237,18 @@ describe("PostCheckoutDetector", () => {
 
       const result = await detector.detectCheckout(sha, sha, 1);
 
+      expect(result.shouldExecute).toBe(true);
       expect(result.metadata?.artifactIds).toEqual(["C.4.1.2"]);
     });
 
     it("should return sorted unique artifact IDs", async () => {
+      // Create the artifacts
+      await createArtifact("C");
+      await createArtifact("C.1");
+      await createArtifact("C.1.5");
+      await createArtifact("C.2");
+      await createArtifact("C.2.1");
+
       const detector = new PostCheckoutDetector({ gitRoot });
 
       execSync("git checkout -b C.2.1-C.1.5-C.2.1", { cwd: gitRoot });
@@ -175,11 +258,17 @@ describe("PostCheckoutDetector", () => {
 
       const result = await detector.detectCheckout(sha, sha, 1);
 
+      expect(result.shouldExecute).toBe(true);
       // Unique and sorted
       expect(result.metadata?.artifactIds).toEqual(["C.1.5", "C.2.1"]);
     });
 
     it("should extract artifact ID with prefix", async () => {
+      // Create the artifact
+      await createArtifact("C");
+      await createArtifact("C.1");
+      await createArtifact("C.1.2");
+
       const detector = new PostCheckoutDetector({ gitRoot });
 
       execSync("git checkout -b feature-C.1.2", { cwd: gitRoot });
@@ -189,10 +278,16 @@ describe("PostCheckoutDetector", () => {
 
       const result = await detector.detectCheckout(sha, sha, 1);
 
+      expect(result.shouldExecute).toBe(true);
       expect(result.metadata?.artifactIds).toEqual(["C.1.2"]);
     });
 
     it("should extract artifact ID with suffix", async () => {
+      // Create the artifact
+      await createArtifact("C");
+      await createArtifact("C.1");
+      await createArtifact("C.1.2");
+
       const detector = new PostCheckoutDetector({ gitRoot });
 
       execSync("git checkout -b C.1.2-feature", { cwd: gitRoot });
@@ -202,12 +297,59 @@ describe("PostCheckoutDetector", () => {
 
       const result = await detector.detectCheckout(sha, sha, 1);
 
+      expect(result.shouldExecute).toBe(true);
       expect(result.metadata?.artifactIds).toEqual(["C.1.2"]);
+    });
+
+    it("should reject branch with invalid artifact ID", async () => {
+      // Create artifacts directory (but no artifacts)
+      await fs.promises.mkdir(artifactsRoot, { recursive: true });
+
+      const detector = new PostCheckoutDetector({ gitRoot });
+
+      execSync("git checkout -b Z.99.99", { cwd: gitRoot });
+      const sha = execSync("git rev-parse HEAD", { cwd: gitRoot })
+        .toString()
+        .trim();
+
+      const result = await detector.detectCheckout(sha, sha, 1);
+
+      expect(result.shouldExecute).toBe(false);
+      expect(result.reason).toContain("Invalid artifact IDs found");
+      expect(result.reason).toContain("Z.99.99");
+      expect(result.metadata?.invalidArtifactIds).toEqual(["Z.99.99"]);
+    });
+
+    it("should reject branch with mixed valid and invalid artifacts", async () => {
+      // Create only one artifact
+      await createArtifact("C");
+      await createArtifact("C.1");
+      await createArtifact("C.1.2");
+
+      const detector = new PostCheckoutDetector({ gitRoot });
+
+      execSync("git checkout -b C.1.2-Z.99.99", { cwd: gitRoot });
+      const sha = execSync("git rev-parse HEAD", { cwd: gitRoot })
+        .toString()
+        .trim();
+
+      const result = await detector.detectCheckout(sha, sha, 1);
+
+      expect(result.shouldExecute).toBe(false);
+      expect(result.reason).toContain("Invalid artifact IDs found");
+      expect(result.reason).toContain("Z.99.99");
+      expect(result.metadata?.artifactIds).toEqual(["C.1.2"]);
+      expect(result.metadata?.invalidArtifactIds).toEqual(["Z.99.99"]);
     });
   });
 
   describe("Metadata extraction", () => {
     it("should extract previous and new HEAD SHAs", async () => {
+      // Create the artifact
+      await createArtifact("C");
+      await createArtifact("C.1");
+      await createArtifact("C.1.2");
+
       const detector = new PostCheckoutDetector({ gitRoot });
 
       const previousSha = "abc123def456";
@@ -217,11 +359,17 @@ describe("PostCheckoutDetector", () => {
 
       const result = await detector.detectCheckout(previousSha, newSha, 1);
 
+      expect(result.shouldExecute).toBe(true);
       expect(result.metadata?.previousHead).toBe(previousSha);
       expect(result.metadata?.newHead).toBe(newSha);
     });
 
     it("should extract current branch name", async () => {
+      // Create the artifact
+      await createArtifact("C");
+      await createArtifact("C.1");
+      await createArtifact("C.1.2");
+
       const detector = new PostCheckoutDetector({ gitRoot });
 
       execSync("git checkout -b my-feature-C.1.2", { cwd: gitRoot });
@@ -231,10 +379,16 @@ describe("PostCheckoutDetector", () => {
 
       const result = await detector.detectCheckout(sha, sha, 1);
 
+      expect(result.shouldExecute).toBe(true);
       expect(result.metadata?.branchName).toBe("my-feature-C.1.2");
     });
 
     it("should include isNewBranch flag in metadata", async () => {
+      // Create the artifact
+      await createArtifact("C");
+      await createArtifact("C.1");
+      await createArtifact("C.1.2");
+
       const detector = new PostCheckoutDetector({ gitRoot });
 
       execSync("git checkout -b C.1.2", { cwd: gitRoot });
@@ -244,10 +398,12 @@ describe("PostCheckoutDetector", () => {
 
       // New branch
       const result1 = await detector.detectCheckout(sha, sha, 1);
+      expect(result1.shouldExecute).toBe(true);
       expect(result1.metadata?.isNewBranch).toBe(true);
 
       // Existing branch (different SHAs)
       const result2 = await detector.detectCheckout("abc123", sha, 1);
+      expect(result2.shouldExecute).toBe(true);
       expect(result2.metadata?.isNewBranch).toBe(false);
     });
   });
@@ -290,6 +446,11 @@ describe("PostCheckoutDetector", () => {
     });
 
     it("should use custom gitRoot from config", async () => {
+      // Create the artifact
+      await createArtifact("C");
+      await createArtifact("C.1");
+      await createArtifact("C.1.2");
+
       const detector = new PostCheckoutDetector({ gitRoot });
 
       execSync("git checkout -b C.1.2", { cwd: gitRoot });

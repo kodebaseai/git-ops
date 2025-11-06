@@ -14,6 +14,7 @@
 
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
+import { BranchValidator } from "./branch-validator.js";
 import type {
   CheckoutDetectionResult,
   CheckoutMetadata,
@@ -21,12 +22,6 @@ import type {
 } from "./post-checkout-types.js";
 
 const execAsync = promisify(exec);
-
-/**
- * Regular expression to match artifact IDs in branch names
- * Matches patterns like: A.1.5, B.2.3, C.4.1.2
- */
-const ARTIFACT_ID_REGEX = /\b[A-Z]\.\d+(?:\.\d+)*\b/g;
 
 /**
  * Default configuration for post-checkout detection
@@ -41,7 +36,7 @@ const DEFAULT_CONFIG: Required<PostCheckoutConfig> = {
  * Detects new branch creation and extracts checkout metadata including:
  * - Branch name
  * - Previous/new commit SHAs
- * - Affected artifact IDs from branch name
+ * - Affected artifact IDs from branch name (validated against artifacts directory)
  *
  * @example
  * ```typescript
@@ -58,13 +53,19 @@ const DEFAULT_CONFIG: Required<PostCheckoutConfig> = {
  */
 export class PostCheckoutDetector {
   private config: Required<PostCheckoutConfig>;
+  private branchValidator: BranchValidator;
 
   constructor(config: PostCheckoutConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.branchValidator = new BranchValidator({
+      baseDir: this.config.gitRoot,
+    });
   }
 
   /**
    * Detect if post-checkout hook should execute
+   *
+   * Validates that extracted artifact IDs exist in .kodebase/artifacts/
    *
    * @param previousHead - SHA of previous HEAD
    * @param newHead - SHA of new HEAD
@@ -73,9 +74,13 @@ export class PostCheckoutDetector {
    *
    * @example
    * ```typescript
-   * // New branch creation (C.1.2)
+   * // New branch creation (C.1.2) - valid artifact
    * const result = await detector.detectCheckout('abc123', 'abc123', 1);
    * // result.shouldExecute = true, result.metadata.artifactIds = ['C.1.2']
+   *
+   * // Branch with invalid artifact ID
+   * const result = await detector.detectCheckout('abc123', 'abc123', 1);
+   * // result.shouldExecute = false, reason = "Invalid artifact IDs: Z.99.99"
    *
    * // File checkout (ignored)
    * const result = await detector.detectCheckout('abc123', 'def456', 0);
@@ -104,11 +109,15 @@ export class PostCheckoutDetector {
       // Existing branch: previousHead !== newHead (switched to different branch)
       const isNewBranch = previousHead === newHead;
 
-      // Extract artifact IDs from branch name
-      const artifactIds = this.extractArtifactIds(branchName);
+      // Validate branch and extract artifact IDs
+      const validationResult =
+        await this.branchValidator.validateBranch(branchName);
 
       // If no artifacts identified, don't execute
-      if (artifactIds.length === 0) {
+      if (
+        validationResult.validArtifactIds.length === 0 &&
+        validationResult.invalidArtifactIds.length === 0
+      ) {
         return {
           shouldExecute: false,
           reason: "No artifact IDs found in branch name",
@@ -122,19 +131,35 @@ export class PostCheckoutDetector {
         };
       }
 
+      // If any invalid artifacts found, don't execute
+      if (!validationResult.allValid) {
+        return {
+          shouldExecute: false,
+          reason: `Invalid artifact IDs found: ${validationResult.invalidArtifactIds.join(", ")}`,
+          metadata: {
+            previousHead,
+            newHead,
+            branchName,
+            isNewBranch,
+            artifactIds: validationResult.validArtifactIds,
+            invalidArtifactIds: validationResult.invalidArtifactIds,
+          },
+        };
+      }
+
       const metadata: CheckoutMetadata = {
         previousHead,
         newHead,
         branchName,
         isNewBranch,
-        artifactIds,
+        artifactIds: validationResult.validArtifactIds,
       };
 
       return {
         shouldExecute: true,
         reason: isNewBranch
-          ? `New branch created with artifacts: ${artifactIds.join(", ")}`
-          : `Checked out existing branch with artifacts: ${artifactIds.join(", ")}`,
+          ? `New branch created with artifacts: ${validationResult.validArtifactIds.join(", ")}`
+          : `Checked out existing branch with artifacts: ${validationResult.validArtifactIds.join(", ")}`,
         metadata,
       };
     } catch (error) {
@@ -155,29 +180,5 @@ export class PostCheckoutDetector {
       cwd: this.config.gitRoot,
     });
     return stdout.trim();
-  }
-
-  /**
-   * Extract artifact IDs from branch name
-   *
-   * @param branchName - Branch name to extract from
-   * @returns Array of unique artifact IDs, sorted
-   *
-   * @example
-   * ```typescript
-   * extractArtifactIds('C.1.2')        // ['C.1.2']
-   * extractArtifactIds('C.1.2-C.1.3')  // ['C.1.2', 'C.1.3']
-   * extractArtifactIds('feature-C.4.1.2') // ['C.4.1.2']
-   * extractArtifactIds('main')         // []
-   * ```
-   */
-  private extractArtifactIds(branchName: string): string[] {
-    const matches = branchName.match(ARTIFACT_ID_REGEX);
-    if (!matches) {
-      return [];
-    }
-
-    // Return unique, sorted artifact IDs
-    return Array.from(new Set(matches)).sort();
   }
 }
