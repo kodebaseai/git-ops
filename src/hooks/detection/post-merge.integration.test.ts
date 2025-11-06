@@ -19,9 +19,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PostMergeOrchestrator } from "./post-merge-orchestrator.js";
-import type { OrchestrationResult } from "./post-merge-orchestrator-types.js";
-import { StrategyExecutor } from "./strategy-executor.js";
+import { PostMergeOrchestrator } from "../orchestration/post-merge-orchestrator.js";
+import type { OrchestrationResult } from "../orchestration/post-merge-orchestrator-types.js";
+import { StrategyExecutor } from "../orchestration/strategy-executor.js";
 
 // Mock @kodebase/config to provide test configuration
 vi.mock("@kodebase/config", () => ({

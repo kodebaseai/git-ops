@@ -2,7 +2,7 @@
  * Hook system types for git operations
  */
 
-import type { HookLogger } from "./hook-logger.js";
+import type { HookLogger } from "../hooks/core/hook-logger.js";
 
 /**
  * Context passed to hook executors

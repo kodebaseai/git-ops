@@ -65,7 +65,8 @@ content:
         content,
       );
     } else {
-      // Issue: A.1.2.test.yml
+      // Issue: A.1.2.test.yml directly in milestone directory
+      // Issues don't have their own directory - they're files in the milestone directory
       const initiativeSlug = `${letter}.test`;
       const milestoneId = `${letter}.${segments[1]}`;
       const milestoneSlug = `${milestoneId}.test`;
@@ -75,6 +76,7 @@ content:
         milestoneSlug,
       );
       await fs.promises.mkdir(milestoneDir, { recursive: true });
+      // Issue file with slug: A.1.2.test.yml
       await fs.promises.writeFile(
         path.join(milestoneDir, `${id}.test.yml`),
         content,
@@ -202,7 +204,7 @@ content:
       const result = await orchestrator.execute(sha, sha, 1);
 
       expect(result.success).toBe(true);
-      expect(result.artifactsTransitioned).toEqual(["C.1.2"]);
+      expect(result.artifactsTransitioned).toEqual([]); // Not transitioned (already in_progress)
 
       // Verify no duplicate in_progress events
       const artifactPath = path.join(
@@ -242,7 +244,7 @@ content:
       const parentPath = path.join(artifactsRoot, "C.test/C.1.test/C.1.yml");
       const content = await fs.promises.readFile(parentPath, "utf-8");
       expect(content).toContain("event: in_progress");
-      expect(content).toContain("trigger: progress_cascade");
+      expect(content).toContain("trigger: children_started"); // Cascade uses children_started trigger
     });
 
     it("should not cascade if parent already in_progress", async () => {
@@ -483,13 +485,15 @@ content:
     });
 
     it("should handle errors in detection phase", async () => {
-      // Don't create artifacts - detector will fail
+      // Create artifacts directory but don't create the artifact - detector will find artifact IDs but fail to load them
+      await fs.promises.mkdir(artifactsRoot, { recursive: true });
+
       const orchestrator = new PostCheckoutOrchestrator({
         baseDir: gitRoot,
         enableDraftPR: false,
       });
 
-      // Create branch with invalid artifact ID
+      // Create branch with artifact ID that doesn't exist
       execSync("git checkout -b Z.99.99", { cwd: gitRoot });
       const sha = execSync("git rev-parse HEAD", { cwd: gitRoot })
         .toString()
@@ -498,7 +502,7 @@ content:
       const result = await orchestrator.execute(sha, sha, 1);
 
       expect(result.success).toBe(false);
-      expect(result.reason).toContain("Invalid artifact IDs");
+      expect(result.reason).toContain("Invalid artifact IDs"); // Detector returns this message
     });
   });
 });

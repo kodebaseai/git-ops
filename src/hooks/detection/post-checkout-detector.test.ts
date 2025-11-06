@@ -75,6 +75,9 @@ describe("PostCheckoutDetector", () => {
     await fs.promises.writeFile(path.join(gitRoot, "README.md"), "# Test\n");
     execSync("git add .", { cwd: gitRoot });
     execSync('git commit -m "Initial commit"', { cwd: gitRoot });
+
+    // Ensure we're on a branch called 'main' (git init creates 'master' by default on older versions)
+    execSync("git branch -M main", { cwd: gitRoot });
   });
 
   afterEach(async () => {

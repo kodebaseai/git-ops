@@ -4,7 +4,7 @@
 
 import type { TEvent } from "@kodebase/core";
 import { beforeEach, describe, expect, it } from "vitest";
-import { CHookEvent, CHookTrigger } from "./constants.js";
+import { CHookEvent, CHookTrigger } from "../../utils/constants.js";
 import { IdempotencyTracker } from "./idempotency-tracker.js";
 import type { HookExecutionMetadata } from "./idempotency-types.js";
 

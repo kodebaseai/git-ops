@@ -3,8 +3,8 @@
  */
 
 import { loadConfig } from "@kodebase/config";
+import type { HookExecutorConfig } from "../../utils/types.js";
 import { HookExecutor } from "./hook-executor.js";
-import type { HookExecutorConfig } from "./types.js";
 
 /**
  * Create a HookExecutor instance from Kodebase configuration file.

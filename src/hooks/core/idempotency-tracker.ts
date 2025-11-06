@@ -6,7 +6,7 @@
  */
 
 import type { TEvent } from "@kodebase/core";
-import { CHookEvent, CHookTrigger } from "./constants.js";
+import { CHookEvent, CHookTrigger } from "../../utils/constants.js";
 import type {
   HookExecutionMetadata,
   IdempotencyConfig,

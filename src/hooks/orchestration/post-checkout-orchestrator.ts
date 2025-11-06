@@ -16,13 +16,19 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import { ArtifactService, CascadeService } from "@kodebase/artifacts";
-import { getArtifactIdFromPath, loadAllArtifactPaths } from "@kodebase/core";
-import { PostCheckoutDetector } from "./post-checkout-detector.js";
+import {
+  getArtifactSlug,
+  getCurrentState,
+} from "../../utils/artifact-utils.js";
+import { PostCheckoutDetector } from "../detection/post-checkout-detector.js";
 import type {
   PostCheckoutOrchestratorConfig,
   PostCheckoutOrchestratorResult,
 } from "./post-checkout-orchestrator-types.js";
 
+// NOTE: Using local promisify(exec) instead of utils/exec.ts because this code
+// relies on exceptions being thrown on git command failures for error handling.
+// utils/exec.ts returns exitCode explicitly which would require refactoring.
 const execAsync = promisify(exec);
 
 /**
@@ -158,8 +164,10 @@ export class PostCheckoutOrchestrator {
       // Step 2: Transition artifacts to in_progress
       for (const artifactId of artifactIds) {
         try {
-          await this.transitionToInProgress(artifactId);
-          artifactsTransitioned.push(artifactId);
+          const wasTransitioned = await this.transitionToInProgress(artifactId);
+          if (wasTransitioned) {
+            artifactsTransitioned.push(artifactId);
+          }
         } catch (error) {
           const message = `Failed to transition ${artifactId}: ${error instanceof Error ? error.message : String(error)}`;
           errors.push(message);
@@ -222,7 +230,11 @@ export class PostCheckoutOrchestrator {
       }
 
       // Determine overall success
-      const success = artifactsTransitioned.length > 0 || prUrl !== undefined;
+      // Success means:
+      // 1. We have artifact IDs to process AND
+      // 2. Either we successfully processed at least one, OR there were no errors
+      // Note: Errors in individual artifact transitions don't fail the entire orchestration
+      const success = artifactIds.length > 0;
 
       return {
         success,
@@ -253,9 +265,10 @@ export class PostCheckoutOrchestrator {
    * Transition artifact to in_progress state
    *
    * @param artifactId - The artifact ID to transition
+   * @returns true if artifact was transitioned, false if already in_progress
    * @throws Error if transition fails
    */
-  private async transitionToInProgress(artifactId: string): Promise<void> {
+  private async transitionToInProgress(artifactId: string): Promise<boolean> {
     // Find the slug for this artifact
     const slug = await this.findArtifactSlug(artifactId);
 
@@ -267,14 +280,14 @@ export class PostCheckoutOrchestrator {
     });
 
     // Get current state
-    const currentState = this.getCurrentState(artifact);
+    const currentState = getCurrentState(artifact);
 
     // Check if already in_progress (idempotency)
     if (currentState === "in_progress") {
       console.log(
         `Artifact ${artifactId} already in_progress, skipping transition`,
       );
-      return;
+      return false;
     }
 
     // Check if artifact is in a valid state to transition
@@ -305,6 +318,7 @@ export class PostCheckoutOrchestrator {
     });
 
     console.log(`Artifact ${artifactId} transitioned to in_progress`);
+    return true;
   }
 
   /**
@@ -316,38 +330,7 @@ export class PostCheckoutOrchestrator {
   private async findArtifactSlug(
     artifactId: string,
   ): Promise<string | undefined> {
-    const artifactsRoot = `${this.config.baseDir}/.kodebase/artifacts`;
-    const allPaths = await loadAllArtifactPaths(artifactsRoot);
-
-    // Find the path for the artifact
-    const artifactPath = allPaths.find((p) => {
-      const id = getArtifactIdFromPath(p);
-      return id === artifactId;
-    });
-
-    if (!artifactPath) {
-      return undefined;
-    }
-
-    // Extract slug from path
-    // Initiative/Milestone: /base/.kodebase/artifacts/A.slug/A.1.yml (directory name)
-    // Issue: /base/.kodebase/artifacts/A.slug/A.1.slug/A.1.2.slug.yml (file name)
-    const pathParts = artifactPath.split("/");
-    const fileName = pathParts[pathParts.length - 1]; // Get file name
-    const dirName = pathParts[pathParts.length - 2]; // Get directory name
-
-    // Try directory name first (initiative/milestone)
-    if (dirName?.startsWith(`${artifactId}.`)) {
-      return dirName.substring(artifactId.length + 1);
-    }
-
-    // Try file name (issue level) - format: ID.slug.yml
-    if (fileName?.startsWith(`${artifactId}.`) && fileName.endsWith(".yml")) {
-      const withoutExtension = fileName.slice(0, -4); // Remove .yml
-      return withoutExtension.substring(artifactId.length + 1);
-    }
-
-    return undefined;
+    return getArtifactSlug(artifactId, this.config.baseDir);
   }
 
   /**
@@ -376,22 +359,5 @@ export class PostCheckoutOrchestrator {
       // If git config fails, use default actor
       return "Git Hook (hook@post-checkout)";
     }
-  }
-
-  /**
-   * Get current state from artifact's event history
-   *
-   * @param artifact - The artifact to check
-   * @returns Current state or null if no events
-   */
-  private getCurrentState(artifact: {
-    metadata: { events: Array<{ event: string }> };
-  }): string | null {
-    const events = artifact.metadata.events;
-    if (!events || events.length === 0) {
-      return null;
-    }
-    const lastEvent = events[events.length - 1];
-    return lastEvent?.event ?? null;
   }
 }

@@ -4,10 +4,9 @@
 
 import type { KodebaseConfig } from "@kodebase/config";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import type { GitPlatformAdapter, PRInfo } from "../types/adapter.js";
-import * as execModule from "../utils/exec.js";
+import type { GitPlatformAdapter, PRInfo } from "../../types/adapter.js";
+import type { MergeMetadata } from "../detection/post-merge-types.js";
 import type { OrchestrationResult } from "./post-merge-orchestrator-types.js";
-import type { MergeMetadata } from "./post-merge-types.js";
 import { StrategyExecutor } from "./strategy-executor.js";
 
 // Mock dependencies
@@ -19,7 +18,10 @@ vi.mock("../factory.js", () => ({
   createAdapterFactory: vi.fn(),
 }));
 
-vi.mock("../utils/exec.js", () => ({
+// Import execAsync so we can mock it
+import * as execModule from "../../utils/exec.js";
+
+vi.mock("../../utils/exec.js", () => ({
   execAsync: vi.fn(),
 }));
 
@@ -328,8 +330,13 @@ describe("StrategyExecutor", () => {
       });
     });
 
-    it.skip("should handle PR creation failure", async () => {
-      // Need to set up git mocks first before PR creation fails
+    it("should handle PR creation failure", async () => {
+      // Reset the beforeEach mocks completely
+      execAsyncMock.mockReset();
+      vi.mocked(mockAdapter.createPR).mockReset();
+      vi.mocked(mockAdapter.mergePR).mockReset();
+
+      // Set up git mocks for successful operations up to PR creation
       execAsyncMock
         .mockResolvedValueOnce({
           stdout: "Merge pull request #42",
@@ -341,6 +348,7 @@ describe("StrategyExecutor", () => {
         .mockResolvedValueOnce({ stdout: "sha123", exitCode: 0 }) // git rev-parse HEAD
         .mockResolvedValueOnce({ stdout: "", exitCode: 0 }); // git push
 
+      // Mock PR creation to fail
       vi.mocked(mockAdapter.createPR).mockRejectedValueOnce(
         new Error("API error"),
       );
@@ -354,7 +362,11 @@ describe("StrategyExecutor", () => {
       expect(result.error).toBe("API error");
     });
 
-    it.skip("should handle git command failures", async () => {
+    it("should handle git command failures", async () => {
+      // Reset the beforeEach mocks completely
+      execAsyncMock.mockReset();
+
+      // Mock git commands: successful PR number lookup, then branch creation failure
       execAsyncMock
         .mockResolvedValueOnce({
           stdout: "Merge pull request #42",
@@ -375,7 +387,12 @@ describe("StrategyExecutor", () => {
       expect(result.error).toContain("Failed to create branch");
     });
 
-    it.skip("should continue if auto-merge fails", async () => {
+    it("should continue if auto-merge fails", async () => {
+      // Reset the beforeEach mocks completely
+      execAsyncMock.mockReset();
+      vi.mocked(mockAdapter.createPR).mockReset();
+      vi.mocked(mockAdapter.mergePR).mockReset();
+
       // Set up git mocks
       execAsyncMock
         .mockResolvedValueOnce({
@@ -397,6 +414,7 @@ describe("StrategyExecutor", () => {
       };
       vi.mocked(mockAdapter.createPR).mockResolvedValueOnce(mockPRInfo);
 
+      // Mock mergePR to fail
       vi.mocked(mockAdapter.mergePR).mockRejectedValueOnce(
         new Error("Merge conflict"),
       );

@@ -6,8 +6,8 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts"],
     exclude: [
-      "src/hooks/post-checkout-orchestrator.test.ts",
-      "src/hooks/post-checkout.integration.test.ts",
+      // "src/hooks/post-checkout-orchestrator.test.ts",
+      // "src/hooks/post-checkout.integration.test.ts",
     ],
     coverage: {
       provider: "istanbul",
@@ -22,7 +22,14 @@ export default defineConfig({
           },
         ],
       ],
-      exclude: ["**/*.test.ts", "**/dist/**", "**/node_modules/**"],
+      enabled: true,
+      // Thresholds set to current coverage levels - coverage should never go down
+      thresholds: {
+        lines: 90,
+        functions: 95,
+        branches: 80,
+        statements: 90,
+      },
     },
   },
 });

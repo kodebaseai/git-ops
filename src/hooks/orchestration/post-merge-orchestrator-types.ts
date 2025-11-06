@@ -3,7 +3,7 @@
  */
 
 import type { CascadeResult } from "@kodebase/artifacts";
-import type { MergeMetadata } from "./post-merge-types.js";
+import type { MergeMetadata } from "../detection/post-merge-types.js";
 
 /**
  * Configuration for post-merge orchestrator

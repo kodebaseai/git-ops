@@ -2,7 +2,7 @@
  * Types for cascade commit creation with agent attribution
  */
 
-import type { OrchestrationResult } from "./post-merge-orchestrator-types.js";
+import type { OrchestrationResult } from "../orchestration/post-merge-orchestrator-types.js";
 
 /**
  * Agent attribution metadata per ADR-006

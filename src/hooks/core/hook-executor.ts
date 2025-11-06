@@ -2,7 +2,11 @@
  * Hook execution framework with non-blocking execution and error handling
  */
 
-import type { HookContext, HookExecutorConfig, HookResult } from "./types.js";
+import type {
+  HookContext,
+  HookExecutorConfig,
+  HookResult,
+} from "../../utils/types.js";
 
 /**
  * Default timeout for hook execution (30 seconds)

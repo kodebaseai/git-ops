@@ -6,9 +6,9 @@
  */
 
 import { type KodebaseConfig, loadConfig } from "@kodebase/config";
-import { createAdapter } from "../factory.js";
-import type { GitPlatformAdapter } from "../types/adapter.js";
-import { execAsync } from "../utils/exec.js";
+import { createAdapter } from "../../factory.js";
+import type { GitPlatformAdapter } from "../../types/adapter.js";
+import { execAsync } from "../../utils/exec.js";
 import type {
   ExecuteStrategyOptions,
   StrategyExecutionResult,

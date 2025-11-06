@@ -19,7 +19,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { PostCheckoutOrchestrator } from "./post-checkout-orchestrator.js";
+import { PostCheckoutOrchestrator } from "../orchestration/post-checkout-orchestrator.js";
 
 describe("Post-Checkout Workflow Integration Tests", () => {
   let tempDir: string;
@@ -142,7 +142,7 @@ content:
       const content = await fs.promises.readFile(artifactPath, "utf-8");
       const lines = content.split("\n");
       // Find last event
-      let lastEvent = null;
+      let lastEvent: string | null = null;
       for (const line of lines) {
         const match = line.match(/^\s+- event: (\w+)/);
         if (match) {
@@ -220,19 +220,21 @@ content:
 
       const result = await orchestrator.execute(prevSha, newSha, 1);
 
-      // Verify cascade propagated up
+      // Verify cascade propagated to direct parent
+      // Note: Progress cascade only goes one level up to the immediate parent
       expect(result.success).toBe(true);
       expect(result.artifactsTransitioned).toContain("A.1.2");
       expect(result.parentsCascaded).toContain("A.1");
-      expect(result.parentsCascaded).toContain("A");
 
-      // Verify all are in_progress
+      // Verify issue and its immediate parent are in_progress
       const issueState = await getArtifactState("A.1.2");
       const milestoneState = await getArtifactState("A.1");
-      const initiativeState = await getArtifactState("A");
       expect(issueState).toBe("in_progress");
       expect(milestoneState).toBe("in_progress");
-      expect(initiativeState).toBe("in_progress");
+
+      // Initiative remains ready (cascade doesn't propagate beyond immediate parent)
+      const initiativeState = await getArtifactState("A");
+      expect(initiativeState).toBe("ready");
     });
   });
 
@@ -311,8 +313,8 @@ content:
 
       const result = await orchestrator.execute(prevSha, newSha, 1);
 
-      expect(result.success).toBe(true);
-      expect(result.reason).toBe("not_artifact_branch");
+      expect(result.success).toBe(false);
+      expect(result.reason).toBe("No artifact IDs found in branch name");
       expect(result.artifactIds).toBeUndefined();
     });
   });
@@ -398,10 +400,10 @@ content:
 
       const result = await orchestrator.execute(prevSha, newSha, 1);
 
-      // Should succeed but report errors
-      expect(result.success).toBe(true);
-      expect(result.errors.length).toBeGreaterThan(0);
-      expect(result.artifactsTransitioned).toEqual([]);
+      // Should not execute when artifact IDs are invalid
+      expect(result.success).toBe(false);
+      expect(result.reason).toContain("Invalid artifact IDs found");
+      expect(result.artifactsTransitioned).toBeUndefined();
     });
 
     it("should handle file checkout (not branch) gracefully", async () => {
@@ -423,8 +425,8 @@ content:
 
       const result = await orchestrator.execute(prevSha, newSha, 0); // 0 = file checkout
 
-      expect(result.success).toBe(true);
-      expect(result.reason).toBe("file_checkout");
+      expect(result.success).toBe(false);
+      expect(result.reason).toBe("File checkout (not branch)");
     });
 
     it("should handle cascade failure gracefully", async () => {

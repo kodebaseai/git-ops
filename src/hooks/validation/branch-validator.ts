@@ -7,13 +7,9 @@
  * @module branch-validator
  */
 
-import { getArtifactIdFromPath, loadAllArtifactPaths } from "@kodebase/core";
-
-/**
- * Regular expression to match artifact IDs in branch names
- * Matches patterns like: A.1.5, B.2.3, C.4.1.2
- */
-const ARTIFACT_ID_REGEX = /\b[A-Z]\.\d+(?:\.\d+)*\b/g;
+import { QueryService } from "@kodebase/artifacts";
+import type { TAnyArtifact } from "@kodebase/core";
+import { ARTIFACT_ID_REGEX } from "../../utils/artifact-utils.js";
 
 /**
  * Result of branch validation containing valid and invalid artifact IDs
@@ -56,7 +52,7 @@ export interface BranchValidationResult {
  * ```
  */
 export class BranchValidator {
-  private readonly artifactsPath: string;
+  private readonly queryService: QueryService;
   private artifactIdCache: Set<string> | null = null;
 
   /**
@@ -67,7 +63,7 @@ export class BranchValidator {
    */
   constructor(options: { baseDir?: string } = {}) {
     const baseDir = options.baseDir ?? process.cwd();
-    this.artifactsPath = `${baseDir}/.kodebase/artifacts`;
+    this.queryService = new QueryService(baseDir);
   }
 
   /**
@@ -139,15 +135,8 @@ export class BranchValidator {
       return this.artifactIdCache;
     }
 
-    const paths = await loadAllArtifactPaths(this.artifactsPath);
-    const ids = new Set<string>();
-
-    for (const filePath of paths) {
-      const id = getArtifactIdFromPath(filePath);
-      if (id) {
-        ids.add(id);
-      }
-    }
+    const artifacts = await this.queryService.findArtifacts({});
+    const ids = new Set<string>(artifacts.map((a) => a.id));
 
     this.artifactIdCache = ids;
     return ids;
@@ -239,18 +228,14 @@ export class BranchValidator {
    * console.log(artifact.metadata.title);
    * ```
    */
-  async loadArtifactMetadata(artifactId: string) {
-    const paths = await loadAllArtifactPaths(this.artifactsPath);
+  async loadArtifactMetadata(artifactId: string): Promise<TAnyArtifact> {
+    const artifacts = await this.queryService.findArtifacts({});
+    const artifactWithId = artifacts.find((a) => a.id === artifactId);
 
-    // Find the path for this artifact ID
-    for (const filePath of paths) {
-      const id = getArtifactIdFromPath(filePath);
-      if (id === artifactId) {
-        const { readArtifact } = await import("@kodebase/core");
-        return readArtifact(filePath);
-      }
+    if (!artifactWithId) {
+      throw new Error(`Artifact "${artifactId}" not found`);
     }
 
-    throw new Error(`Artifact "${artifactId}" not found`);
+    return artifactWithId.artifact;
   }
 }

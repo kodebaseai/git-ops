@@ -4,19 +4,17 @@
 
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
+import { extractArtifactIds } from "../../utils/artifact-utils.js";
 import type {
   MergeDetectionResult,
   MergeMetadata,
   PostMergeConfig,
 } from "./post-merge-types.js";
 
+// NOTE: Using local promisify(exec) instead of utils/exec.ts because this code
+// relies on exceptions being thrown on git command failures for error handling.
+// utils/exec.ts returns exitCode explicitly which would require refactoring.
 const execAsync = promisify(exec);
-
-/**
- * Regular expression to match artifact IDs in branch names or text
- * Matches patterns like: A.1.5, B.2.3, C.4.1.2
- */
-const ARTIFACT_ID_REGEX = /\b[A-Z]\.\d+(?:\.\d+)*\b/g;
 
 /**
  * Default configuration for post-merge detection
@@ -124,7 +122,7 @@ export class PostMergeDetector {
     const isPRMerge = prNumber !== null || squelchMerge === 0;
 
     // Extract artifact IDs from branch name and PR metadata
-    const artifactIds = this.extractArtifactIds(sourceBranch, prTitle, prBody);
+    const artifactIds = extractArtifactIds(sourceBranch, prTitle, prBody);
 
     return {
       targetBranch: currentBranch,
@@ -239,50 +237,6 @@ export class PostMergeDetector {
       // TODO: Implement GitHub API fallback with token
       return { title: null, body: null };
     }
-  }
-
-  /**
-   * Extract artifact IDs from branch name and PR metadata
-   * Searches for patterns like A.1.5, B.2.3, C.4.1.2
-   */
-  private extractArtifactIds(
-    branchName: string | null,
-    prTitle: string | null,
-    prBody: string | null,
-  ): string[] {
-    const artifacts = new Set<string>();
-
-    // Extract from branch name
-    if (branchName) {
-      const matches = branchName.match(ARTIFACT_ID_REGEX);
-      if (matches) {
-        for (const match of matches) {
-          artifacts.add(match);
-        }
-      }
-    }
-
-    // Extract from PR title
-    if (prTitle) {
-      const matches = prTitle.match(ARTIFACT_ID_REGEX);
-      if (matches) {
-        for (const match of matches) {
-          artifacts.add(match);
-        }
-      }
-    }
-
-    // Extract from PR body
-    if (prBody) {
-      const matches = prBody.match(ARTIFACT_ID_REGEX);
-      if (matches) {
-        for (const match of matches) {
-          artifacts.add(match);
-        }
-      }
-    }
-
-    return Array.from(artifacts).sort();
   }
 }
 

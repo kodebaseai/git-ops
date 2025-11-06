@@ -23,7 +23,7 @@
  */
 
 import type { CascadeResult } from "@kodebase/artifacts";
-import { execAsync } from "../utils/exec.js";
+import { execAsync } from "../../utils/exec.js";
 import type {
   CascadeCommitAttribution,
   CreateCascadeCommitOptions,

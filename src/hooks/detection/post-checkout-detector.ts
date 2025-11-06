@@ -14,13 +14,16 @@
 
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import { BranchValidator } from "./branch-validator.js";
+import { BranchValidator } from "../validation/branch-validator.js";
 import type {
   CheckoutDetectionResult,
   CheckoutMetadata,
   PostCheckoutConfig,
 } from "./post-checkout-types.js";
 
+// NOTE: Using local promisify(exec) instead of utils/exec.ts because this code
+// relies on exceptions being thrown on git command failures for error handling.
+// utils/exec.ts returns exitCode explicitly which would require refactoring.
 const execAsync = promisify(exec);
 
 /**

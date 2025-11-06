@@ -3,14 +3,14 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as execModule from "../utils/exec.js";
+import * as execModule from "../../utils/exec.js";
+import type { MergeMetadata } from "../detection/post-merge-types.js";
+import type { OrchestrationResult } from "../orchestration/post-merge-orchestrator-types.js";
 import { createCascadeCommit } from "./cascade-commit.js";
 import type { CascadeCommitAttribution } from "./cascade-commit-types.js";
-import type { OrchestrationResult } from "./post-merge-orchestrator-types.js";
-import type { MergeMetadata } from "./post-merge-types.js";
 
 // Mock execAsync
-vi.mock("../utils/exec.js", () => ({
+vi.mock("../../utils/exec.js", () => ({
   execAsync: vi.fn(),
 }));
 

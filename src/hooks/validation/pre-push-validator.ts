@@ -9,10 +9,13 @@
  * @module pre-push-validator
  */
 
-import { ARTIFACT_ID_REGEX, getCurrentState } from "@kodebase/artifacts";
+import { QueryService } from "@kodebase/artifacts";
 import type { TAnyArtifact } from "@kodebase/core";
-import { execAsync } from "../utils/exec.js";
-import { loadArtifactMetadata } from "./artifact-loader.js";
+import {
+  ARTIFACT_ID_REGEX,
+  getCurrentState,
+} from "../../utils/artifact-utils.js";
+import { execAsync } from "../../utils/exec.js";
 
 /**
  * Warning types that can be issued by pre-push validation.
@@ -112,14 +115,17 @@ export async function validatePrePush(
 
   // Check artifact states
   if (checkStates && artifactIds.length > 0) {
+    const queryService = new QueryService(process.cwd());
+    const allArtifacts = await queryService.findArtifacts({});
+
     for (const artifactId of artifactIds) {
       try {
-        const artifact = await loadArtifactMetadata(artifactId, {
-          gitRoot: process.cwd(),
-          artifactsDir,
-        });
-        if (artifact) {
-          const stateWarnings = checkArtifactState(artifactId, artifact);
+        const artifactWithId = allArtifacts.find((a) => a.id === artifactId);
+        if (artifactWithId) {
+          const stateWarnings = checkArtifactState(
+            artifactId,
+            artifactWithId.artifact,
+          );
           warnings.push(...stateWarnings);
         }
       } catch {

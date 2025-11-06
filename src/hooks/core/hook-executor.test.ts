@@ -3,8 +3,8 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { HookContext } from "../../utils/types.js";
 import { HookExecutor } from "./hook-executor.js";
-import type { HookContext } from "./types.js";
 
 /**
  * Internal type for accessing private HookExecutor methods/properties in tests

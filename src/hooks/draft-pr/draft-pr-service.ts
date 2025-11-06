@@ -7,7 +7,8 @@
  * @module draft-pr-service
  */
 
-import type { GitPlatformAdapter } from "../types/adapter.js";
+import { QueryService } from "@kodebase/artifacts";
+import type { GitPlatformAdapter } from "../../types/adapter.js";
 import type { DraftPRConfig, DraftPRResult } from "./draft-pr-types.js";
 
 /**
@@ -159,9 +160,15 @@ export class DraftPRService {
     artifactId: string,
   ): Promise<{ title: string; body: string }> {
     try {
-      // Import loadArtifactMetadata here to avoid circular dependency
-      const { loadArtifactMetadata } = await import("./artifact-loader.js");
-      const artifact = await loadArtifactMetadata(artifactId, this.config);
+      const queryService = new QueryService(this.config.gitRoot);
+      const allArtifacts = await queryService.findArtifacts({});
+      const artifactWithId = allArtifacts.find((a) => a.id === artifactId);
+
+      if (!artifactWithId) {
+        throw new Error(`Artifact ${artifactId} not found`);
+      }
+
+      const artifact = artifactWithId.artifact;
 
       // Build PR title from artifact metadata
       const title = `[${artifactId}] ${artifact.metadata.title}`;

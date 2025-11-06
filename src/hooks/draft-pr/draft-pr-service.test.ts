@@ -3,19 +3,30 @@
  */
 
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import type { GitPlatformAdapter, PRInfo } from "../types/adapter.js";
-import { DraftPRService } from "./draft-pr-service.js";
+import type { GitPlatformAdapter, PRInfo } from "../../types/adapter.js";
 
-// Mock the artifact-loader module
-vi.mock("./artifact-loader.js", () => ({
-  loadArtifactMetadata: vi.fn(),
-}));
+// Hoist mock function to ensure it's available before modules load
+const mockFindArtifacts = vi.fn();
+
+// Mock the QueryService from @kodebase/artifacts
+vi.mock("@kodebase/artifacts", () => {
+  return {
+    QueryService: class MockQueryService {
+      findArtifacts = mockFindArtifacts;
+    },
+  };
+});
+
+import { DraftPRService } from "./draft-pr-service.js";
 
 describe("DraftPRService", () => {
   let mockAdapter: GitPlatformAdapter;
   let service: DraftPRService;
 
   beforeEach(() => {
+    // Reset mocks
+    mockFindArtifacts.mockReset();
+
     // Create mock adapter
     mockAdapter = {
       platform: "github" as const,
@@ -63,20 +74,24 @@ describe("DraftPRService", () => {
 
       (mockAdapter.createDraftPR as Mock).mockResolvedValue(mockPR);
 
-      // Mock artifact loader
-      const { loadArtifactMetadata } = await import("./artifact-loader.js");
-      (loadArtifactMetadata as Mock).mockResolvedValue({
-        metadata: {
-          title: "Draft PR Creation",
+      // Mock QueryService to return artifact
+      mockFindArtifacts.mockResolvedValue([
+        {
+          id: "C.6.3",
+          artifact: {
+            metadata: {
+              title: "Draft PR Creation",
+            },
+            content: {
+              summary: "Create draft PRs automatically",
+              acceptance_criteria: [
+                "Reads draft_pr.enabled from config",
+                "Creates draft PR using GitPlatformAdapter",
+              ],
+            },
+          },
         },
-        content: {
-          summary: "Create draft PRs automatically",
-          acceptance_criteria: [
-            "Reads draft_pr.enabled from config",
-            "Creates draft PR using GitPlatformAdapter",
-          ],
-        },
-      });
+      ]);
 
       const result = await service.createDraftPR(
         "C.6.3",
@@ -104,17 +119,21 @@ describe("DraftPRService", () => {
         new Error("PR creation failed"),
       );
 
-      // Mock artifact loader to succeed
-      const { loadArtifactMetadata } = await import("./artifact-loader.js");
-      (loadArtifactMetadata as Mock).mockResolvedValue({
-        metadata: {
-          title: "Draft PR Creation",
+      // Mock QueryService to return artifact
+      mockFindArtifacts.mockResolvedValue([
+        {
+          id: "C.6.3",
+          artifact: {
+            metadata: {
+              title: "Draft PR Creation",
+            },
+            content: {
+              summary: "Test summary",
+              acceptance_criteria: ["Test criteria"],
+            },
+          },
         },
-        content: {
-          summary: "Test summary",
-          acceptance_criteria: ["Test criteria"],
-        },
-      });
+      ]);
 
       const result = await service.createDraftPR("C.6.3", "C.6.3-draft-pr");
 
@@ -134,11 +153,8 @@ describe("DraftPRService", () => {
 
       (mockAdapter.createDraftPR as Mock).mockResolvedValue(mockPR);
 
-      // Mock artifact loader to fail
-      const { loadArtifactMetadata } = await import("./artifact-loader.js");
-      (loadArtifactMetadata as Mock).mockRejectedValue(
-        new Error("Artifact not found"),
-      );
+      // Mock QueryService to return empty array (artifact not found)
+      mockFindArtifacts.mockResolvedValue([]);
 
       const result = await service.createDraftPR("C.99.99", "C.99.99-test");
 
@@ -165,24 +181,28 @@ describe("DraftPRService", () => {
 
       (mockAdapter.createDraftPR as Mock).mockResolvedValue(mockPR);
 
-      // Mock initiative artifact
-      const { loadArtifactMetadata } = await import("./artifact-loader.js");
-      (loadArtifactMetadata as Mock).mockResolvedValue({
-        metadata: {
-          title: "Git Operations Package",
-        },
-        content: {
-          vision: "Automate git operations for artifact management",
-          scope: {
-            in: ["Hook execution", "PR creation"],
-            out: ["Manual git operations"],
+      // Mock QueryService to return initiative artifact
+      mockFindArtifacts.mockResolvedValue([
+        {
+          id: "C",
+          artifact: {
+            metadata: {
+              title: "Git Operations Package",
+            },
+            content: {
+              vision: "Automate git operations for artifact management",
+              scope: {
+                in: ["Hook execution", "PR creation"],
+                out: ["Manual git operations"],
+              },
+              success_criteria: [
+                "Hooks installed successfully",
+                "PRs created automatically",
+              ],
+            },
           },
-          success_criteria: [
-            "Hooks installed successfully",
-            "PRs created automatically",
-          ],
         },
-      });
+      ]);
 
       const result = await service.createDraftPR("C", "C-git-ops", "main");
 
@@ -212,18 +232,22 @@ describe("DraftPRService", () => {
 
       (mockAdapter.createDraftPR as Mock).mockResolvedValue(mockPR);
 
-      // Mock milestone artifact
-      const { loadArtifactMetadata } = await import("./artifact-loader.js");
-      (loadArtifactMetadata as Mock).mockResolvedValue({
-        metadata: {
-          title: "Post-Checkout Hook",
+      // Mock QueryService to return milestone artifact
+      mockFindArtifacts.mockResolvedValue([
+        {
+          id: "C.6",
+          artifact: {
+            metadata: {
+              title: "Post-Checkout Hook",
+            },
+            content: {
+              summary: "Implement post-checkout hook functionality",
+              deliverables: ["Hook detector", "Draft PR service"],
+              validation: ["All hooks tests pass", "Coverage >= 90%"],
+            },
+          },
         },
-        content: {
-          summary: "Implement post-checkout hook functionality",
-          deliverables: ["Hook detector", "Draft PR service"],
-          validation: ["All hooks tests pass", "Coverage >= 90%"],
-        },
-      });
+      ]);
 
       const result = await service.createDraftPR(
         "C.6",
@@ -255,12 +279,16 @@ describe("DraftPRService", () => {
 
       (mockAdapter.createDraftPR as Mock).mockResolvedValue(mockPR);
 
-      // Mock artifact loader
-      const { loadArtifactMetadata } = await import("./artifact-loader.js");
-      (loadArtifactMetadata as Mock).mockResolvedValue({
-        metadata: { title: "Test" },
-        content: { summary: "Test summary", acceptance_criteria: [] },
-      });
+      // Mock QueryService to return artifact
+      mockFindArtifacts.mockResolvedValue([
+        {
+          id: "C.6.3",
+          artifact: {
+            metadata: { title: "Test" },
+            content: { summary: "Test summary", acceptance_criteria: [] },
+          },
+        },
+      ]);
 
       await service.createDraftPR("C.6.3", "C.6.3-test");
 
@@ -282,15 +310,23 @@ describe("DraftPRService", () => {
 
       (mockAdapter.createDraftPR as Mock).mockResolvedValue(mockPR);
 
-      // Mock artifact loader
-      const { loadArtifactMetadata } = await import("./artifact-loader.js");
-      (loadArtifactMetadata as Mock).mockResolvedValue({
-        metadata: { title: "Test Artifact" },
-        content: {
-          summary: "This is a test summary",
-          acceptance_criteria: ["Criterion 1", "Criterion 2", "Criterion 3"],
+      // Mock QueryService to return artifact
+      mockFindArtifacts.mockResolvedValue([
+        {
+          id: "C.6.3",
+          artifact: {
+            metadata: { title: "Test Artifact" },
+            content: {
+              summary: "This is a test summary",
+              acceptance_criteria: [
+                "Criterion 1",
+                "Criterion 2",
+                "Criterion 3",
+              ],
+            },
+          },
         },
-      });
+      ]);
 
       await service.createDraftPR("C.6.3", "C.6.3-test");
 

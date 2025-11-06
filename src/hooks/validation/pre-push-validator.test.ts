@@ -10,14 +10,13 @@
 
 import type { TAnyArtifact } from "@kodebase/core";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import * as exec from "../utils/exec.js";
-import * as artifactLoader from "./artifact-loader.js";
+import * as exec from "../../utils/exec.js";
 import * as branchValidator from "./branch-validator.js";
 import { validatePrePush } from "./pre-push-validator.js";
 
 // Mock dependencies
-vi.mock("../utils/exec.js");
-vi.mock("./artifact-loader.js");
+vi.mock("../../utils/exec.js");
+vi.mock("@kodebase/artifacts");
 vi.mock("./branch-validator.js");
 
 describe.skip("pre-push-validator", () => {
