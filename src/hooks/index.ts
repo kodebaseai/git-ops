@@ -12,6 +12,8 @@ export type {
 } from "./cascade-commit-types.js";
 export type { THookEvent, THookTrigger } from "./constants.js";
 export { CHookEvent, CHookTrigger } from "./constants.js";
+export { DraftPRService } from "./draft-pr-service.js";
+export type { DraftPRConfig, DraftPRResult } from "./draft-pr-types.js";
 export { HookExecutor } from "./hook-executor.js";
 export {
   createHookExecutor,
