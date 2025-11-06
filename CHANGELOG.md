@@ -1,5 +1,49 @@
 # @kodebase/git-ops
 
+## 0.6.0
+
+### Minor Changes
+
+- [#168](https://github.com/kodebaseai/kodebase/pull/168) [`9fff1ad`](https://github.com/kodebaseai/kodebase/commit/9fff1ada29df2b35c140e8957bf039d6ce27a536) Thanks [@migcarva](https://github.com/migcarva)! - Add validation hooks for pre-commit and pre-push with E2E testing
+
+  Implemented comprehensive validation hooks system for git operations:
+
+  **Pre-Commit Validation (Blocking):**
+
+  - validatePreCommit() function blocking commits with validation errors
+  - Schema validation via ValidationService integration
+  - Orphaned dependency detection (non-existent artifact references)
+  - Circular dependency and relationship consistency checks
+  - Clear error messages with field paths and suggested fixes
+
+  **Pre-Push Validation (Non-Blocking Warnings):**
+
+  - validatePrePush() function with non-blocking warnings
+  - Warns about uncommitted changes in .kodebase/artifacts/
+  - Warns about artifacts in draft or blocked states
+  - Actionable warning messages with remediation guidance
+
+  **E2E Testing:**
+
+  - 11 comprehensive E2E tests using real temporary git repositories
+  - Zero mocking - uses actual git operations and artifact files
+  - Tests cover all acceptance criteria with 93.34% line coverage
+  - Deterministic isolation via temporary directory creation/cleanup
+
+  **API Exports:**
+
+  - validatePreCommit(), validatePrePush() functions
+  - PreCommitError, PreCommitValidationResult types
+  - PrePushWarning, PrePushValidationResult types
+  - Full TypeScript type definitions
+
+  All 421 tests passing with 93.34% line coverage (exceeds 85% requirement).
+
+### Patch Changes
+
+- Updated dependencies [[`38f531e`](https://github.com/kodebaseai/kodebase/commit/38f531e11e9ba887b5a3a75bfb3a88874d415a43)]:
+  - @kodebase/artifacts@1.1.1
+
 ## 0.5.0
 
 ### Minor Changes
