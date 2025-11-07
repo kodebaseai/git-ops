@@ -184,6 +184,136 @@ export interface CancellationImpactReport {
 }
 
 /**
+ * Dependent artifact that will be orphaned by deletion
+ */
+export interface OrphanedDependent {
+  /**
+   * The dependent artifact ID
+   */
+  id: string;
+
+  /**
+   * The dependent artifact
+   */
+  artifact: TAnyArtifact;
+
+  /**
+   * Number of remaining dependencies after this deletion
+   */
+  remainingDependencies: number;
+
+  /**
+   * Whether artifact will be fully orphaned (no remaining dependencies)
+   */
+  fullyOrphaned: boolean;
+
+  /**
+   * Human-readable message
+   */
+  message: string;
+}
+
+/**
+ * Parent artifact with broken children reference
+ */
+export interface BrokenParent {
+  /**
+   * The parent artifact ID
+   */
+  id: string;
+
+  /**
+   * The parent artifact
+   */
+  artifact: TAnyArtifact;
+
+  /**
+   * Number of remaining children after this deletion
+   */
+  remainingChildren: number;
+
+  /**
+   * Human-readable message
+   */
+  message: string;
+}
+
+/**
+ * Sibling artifact affected by parent completion check
+ */
+export interface AffectedSibling {
+  /**
+   * The sibling artifact ID
+   */
+  id: string;
+
+  /**
+   * The sibling artifact
+   */
+  artifact: TAnyArtifact;
+
+  /**
+   * Whether sibling can help complete parent now
+   */
+  canHelpComplete: boolean;
+
+  /**
+   * Human-readable message
+   */
+  message: string;
+}
+
+/**
+ * Result of deletion impact analysis
+ */
+export interface DeletionImpactReport {
+  /**
+   * The artifact ID being deleted
+   */
+  artifactId: string;
+
+  /**
+   * Artifacts that will have broken blocked_by references
+   */
+  orphanedDependents: OrphanedDependent[];
+
+  /**
+   * Parent artifact with broken children reference
+   */
+  brokenParent: BrokenParent | null;
+
+  /**
+   * Sibling artifacts affected by parent completion
+   */
+  affectedSiblings: AffectedSibling[];
+
+  /**
+   * Child artifacts that will be orphaned
+   */
+  orphanedChildren: ArtifactWithId[];
+
+  /**
+   * Whether there is any impact
+   */
+  hasImpact: boolean;
+
+  /**
+   * Whether --force flag is required (has dependents)
+   */
+  requiresForce: boolean;
+
+  /**
+   * Overall impact summary message
+   */
+  summary: string;
+
+  /**
+   * Analysis timestamp
+   */
+  analyzedAt: string;
+}
+
+/**
  * Impact Analysis Engine
  *
  * Analyzes the impact of operations on artifacts by traversing the
@@ -666,6 +796,191 @@ export class ImpactAnalyzer {
     }
 
     return `Cancelling ${artifactId} ${parts.join(", ")}`;
+  }
+
+  /**
+   * Analyzes the impact of deleting an artifact
+   *
+   * Deletion has destructive semantics:
+   * - Artifacts with blocked_by references to this artifact become orphaned
+   * - Parent artifact loses a child reference
+   * - Siblings affected by parent completion check
+   * - Child artifacts become orphaned
+   *
+   * @param artifactId - The artifact ID to analyze
+   * @returns Deletion impact report with detailed analysis
+   *
+   * @throws {Error} If artifact doesn't exist
+   *
+   * @example
+   * ```typescript
+   * const analyzer = new ImpactAnalyzer({ baseDir: '/path/to/repo' });
+   * const report = await analyzer.analyzeDeletion('C.1.2');
+   *
+   * if (report.requiresForce) {
+   *   console.log('⚠️  --force flag required');
+   * }
+   *
+   * console.log(report.summary);
+   * // "Deleting C.1.2 will orphan 2 artifacts and break parent C.1"
+   * ```
+   */
+  async analyzeDeletion(artifactId: string): Promise<DeletionImpactReport> {
+    // Verify artifact exists
+    const allArtifacts = await this.queryService.findArtifacts({});
+    const targetArtifact = allArtifacts.find((a) => a.id === artifactId);
+
+    if (!targetArtifact) {
+      throw new Error(`Artifact ${artifactId} not found`);
+    }
+
+    const orphanedDependents: OrphanedDependent[] = [];
+    let brokenParent: BrokenParent | null = null;
+    const affectedSiblings: AffectedSibling[] = [];
+
+    // 1. Find orphaned dependents (artifacts that depend on this one)
+    const blockedArtifacts =
+      await this.depService.getBlockedArtifacts(artifactId);
+
+    for (const blocked of blockedArtifacts) {
+      const blockers =
+        blocked.artifact.metadata.relationships?.blocked_by ?? [];
+
+      // Count remaining dependencies after this deletion
+      const remainingDependencies = blockers.filter(
+        (b) => b !== artifactId,
+      ).length;
+      const fullyOrphaned = remainingDependencies === 0;
+
+      const message = fullyOrphaned
+        ? "Will be fully orphaned (no remaining dependencies)"
+        : `Will have ${remainingDependencies} remaining dependenc${remainingDependencies > 1 ? "ies" : "y"}`;
+
+      orphanedDependents.push({
+        id: blocked.id,
+        artifact: blocked.artifact,
+        remainingDependencies,
+        fullyOrphaned,
+        message,
+      });
+    }
+
+    // 2. Find broken parent (parent with broken children reference)
+    const parentId = this.getParentId(artifactId);
+    if (parentId) {
+      const parentArtifact = allArtifacts.find((a) => a.id === parentId);
+      if (parentArtifact) {
+        const siblings = await this.findChildrenInHierarchy(parentId);
+        const remainingChildren = siblings.length - 1; // Exclude the one being deleted
+
+        const message =
+          remainingChildren === 0
+            ? `Parent ${parentId} will have no remaining children`
+            : `Parent ${parentId} will have ${remainingChildren} remaining child${remainingChildren > 1 ? "ren" : ""}`;
+
+        brokenParent = {
+          id: parentId,
+          artifact: parentArtifact.artifact,
+          remainingChildren,
+          message,
+        };
+
+        // 3. Analyze siblings affected by parent completion
+        for (const sibling of siblings) {
+          if (sibling.id === artifactId) continue; // Skip the one being deleted
+
+          // Check if this sibling is completed or cancelled
+          const hasCompleted = sibling.artifact.metadata.events.some(
+            (e) => e.event === "completed",
+          );
+          const hasCancelled = sibling.artifact.metadata.events.some(
+            (e) => e.event === "cancelled",
+          );
+
+          const canHelpComplete = hasCompleted || hasCancelled;
+          const message = canHelpComplete
+            ? "Already completed/cancelled - can help complete parent"
+            : "Not yet completed - parent completion still blocked";
+
+          affectedSiblings.push({
+            id: sibling.id,
+            artifact: sibling.artifact,
+            canHelpComplete,
+            message,
+          });
+        }
+      }
+    }
+
+    // 4. Find orphaned children
+    const orphanedChildren = await this.findChildrenInHierarchy(artifactId);
+
+    // 5. Generate summary message
+    const summary = this.generateDeletionSummary(
+      artifactId,
+      orphanedDependents,
+      brokenParent,
+      orphanedChildren,
+    );
+
+    const hasImpact =
+      orphanedDependents.length > 0 ||
+      brokenParent !== null ||
+      affectedSiblings.length > 0 ||
+      orphanedChildren.length > 0;
+
+    // Require --force flag if any dependents exist
+    const requiresForce = orphanedDependents.length > 0;
+
+    return {
+      artifactId,
+      orphanedDependents,
+      brokenParent,
+      affectedSiblings,
+      orphanedChildren,
+      hasImpact,
+      requiresForce,
+      summary,
+      analyzedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Generates a human-readable summary of deletion impact
+   *
+   * @param artifactId - The artifact being deleted
+   * @param orphanedDependents - Dependents with broken references
+   * @param brokenParent - Parent with broken child reference
+   * @param orphanedChildren - Child artifacts
+   * @returns Summary message
+   */
+  private generateDeletionSummary(
+    artifactId: string,
+    orphanedDependents: OrphanedDependent[],
+    brokenParent: BrokenParent | null,
+    orphanedChildren: ArtifactWithId[],
+  ): string {
+    const parts: string[] = [];
+
+    if (orphanedDependents.length > 0) {
+      const count = orphanedDependents.length;
+      parts.push(`will orphan ${count} artifact${count > 1 ? "s" : ""}`);
+    }
+
+    if (brokenParent) {
+      parts.push(`will break parent ${brokenParent.id}`);
+    }
+
+    if (orphanedChildren.length > 0) {
+      const count = orphanedChildren.length;
+      parts.push(`will orphan ${count} child${count > 1 ? "ren" : ""}`);
+    }
+
+    if (parts.length === 0) {
+      return `Deleting ${artifactId} has no impact on other artifacts`;
+    }
+
+    return `Deleting ${artifactId} ${parts.join(" and ")}`;
   }
 
   /**
