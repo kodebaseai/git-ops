@@ -5,6 +5,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import * as fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BranchValidator } from "./branch-validator.js";
 
@@ -374,6 +375,91 @@ describe("BranchValidator", () => {
 
       expect(validator.extractArtifactId("A.1.2.3.4.5.6.7.8.9")).toBe(
         "A.1.2.3.4.5.6.7.8.9",
+      );
+    });
+  });
+
+  // ============================================================================
+  // PROPERTY-BASED TESTS
+  // ============================================================================
+
+  describe("extractArtifactId - property tests", () => {
+    it("extracted ID always matches valid artifact ID pattern", () => {
+      const validator = new BranchValidator({ baseDir: tempDir });
+
+      fc.assert(
+        fc.property(fc.string(), (branchName) => {
+          const id = validator.extractArtifactId(branchName);
+
+          // If an ID is found, it must match the pattern
+          if (id !== null) {
+            expect(id).toMatch(/^[A-Z](\.\d+)+$/);
+          }
+        }),
+      );
+    });
+
+    it("consistency: extractArtifactId returns first of extractArtifactIds", () => {
+      const validator = new BranchValidator({ baseDir: tempDir });
+
+      fc.assert(
+        fc.property(fc.string(), (branchName) => {
+          const single = validator.extractArtifactId(branchName);
+          const multiple = validator.extractArtifactIds(branchName);
+
+          if (single === null) {
+            expect(multiple).toHaveLength(0);
+          } else {
+            expect(multiple.length).toBeGreaterThan(0);
+            expect(multiple[0]).toBe(single);
+          }
+        }),
+      );
+    });
+
+    it("extractArtifactIds returns unique and sorted IDs", () => {
+      const validator = new BranchValidator({ baseDir: tempDir });
+
+      fc.assert(
+        fc.property(fc.string(), (branchName) => {
+          const ids = validator.extractArtifactIds(branchName);
+
+          // Should be unique
+          const uniqueIds = [...new Set(ids)];
+          expect(ids.length).toBe(uniqueIds.length);
+
+          // Should be sorted
+          const sortedIds = [...ids].sort();
+          expect(ids).toEqual(sortedIds);
+        }),
+      );
+    });
+
+    it("all extracted IDs have valid format", () => {
+      const validator = new BranchValidator({ baseDir: tempDir });
+
+      fc.assert(
+        fc.property(fc.string(), (branchName) => {
+          const ids = validator.extractArtifactIds(branchName);
+
+          // Every extracted ID must match the pattern
+          for (const id of ids) {
+            expect(id).toMatch(/^[A-Z](\.\d+)+$/);
+          }
+        }),
+      );
+    });
+
+    it("extraction is deterministic (idempotent)", () => {
+      const validator = new BranchValidator({ baseDir: tempDir });
+
+      fc.assert(
+        fc.property(fc.string(), (branchName) => {
+          const ids1 = validator.extractArtifactIds(branchName);
+          const ids2 = validator.extractArtifactIds(branchName);
+
+          expect(ids1).toEqual(ids2);
+        }),
       );
     });
   });
