@@ -6,19 +6,21 @@
  * Part of D.1.1 Contract Test Proof-of-Concept.
  */
 
+import { FakeGitAdapter } from "@kodebase/test-utils";
 import { describe } from "vitest";
-import { FakeGitAdapter } from "../__fakes__/fake-git-adapter.js";
 import { contractGitPlatformAdapter } from "./git-platform-adapter.contract.js";
 
 // Run contract tests against FakeGitAdapter
 describe("Contract Tests", () => {
   contractGitPlatformAdapter(
     "FakeGitAdapter",
-    async () =>
-      new FakeGitAdapter({
-        authenticated: true,
-        user: "contract-test-user",
-      }),
+    () =>
+      Promise.resolve(
+        new FakeGitAdapter({
+          authenticated: true,
+          user: "contract-test-user",
+        }),
+      ),
     {
       timeout: 1000, // <1s target
     },
