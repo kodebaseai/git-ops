@@ -1,5 +1,24 @@
 # @kodebase/git-ops
 
+## 0.7.1
+
+### Patch Changes
+
+- [#180](https://github.com/kodebaseai/kodebase/pull/180) [`e324343`](https://github.com/kodebaseai/kodebase/commit/e3243435f2c8380081088c97c4cc46fc0bc9427e) Thanks [@migcarva](https://github.com/migcarva)! - Scaffold shared test infrastructure package `@kodebase/test-utils` with core fakes and helpers:
+
+  - Add FakeGitAdapter (in-memory Git adapter)
+  - Add FakeClock utility
+  - Add ConfigBuilder for YAML config scaffolding
+  - Add memfs wrapper for consistent fs mocking in tests
+
+  Adopt in two packages:
+
+  - @kodebase/git-ops: use FakeGitAdapter from `@kodebase/test-utils` in contract tests
+  - @kodebase/artifacts: replace inline memfs mocking with `mockFsPromises` helper
+
+- Updated dependencies [[`e324343`](https://github.com/kodebaseai/kodebase/commit/e3243435f2c8380081088c97c4cc46fc0bc9427e)]:
+  - @kodebase/artifacts@1.1.2
+
 ## 0.7.0
 
 ### Minor Changes

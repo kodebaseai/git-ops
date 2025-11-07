@@ -1,6 +1,6 @@
 {
   "name": "@kodebase/git-ops",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Git platform abstraction for GitHub, GitLab, and Bitbucket operations",
   "license": "MIT",
   "publishConfig": {
