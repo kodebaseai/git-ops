@@ -1,5 +1,71 @@
 # @kodebase/git-ops
 
+## 0.7.0
+
+### Minor Changes
+
+- [#174](https://github.com/kodebaseai/kodebase/pull/174) [`4f29cee`](https://github.com/kodebaseai/kodebase/commit/4f29cee48b9f933b0a7709c01b87c6473f4fed0c) Thanks [@migcarva](https://github.com/migcarva)! - feat(git-ops): complete impact analysis system for destructive operations
+
+  Implements comprehensive impact analysis engine for cancellation, deletion, and dependency removal operations:
+
+  **Core Impact Analysis Engine (C.8.1)**
+
+  - ImpactAnalyzer class with operation-specific analyzers
+  - Graph traversal using DependencyGraphService and QueryService
+  - Cancellation impact: parent completion effects, dependency unblocking
+  - Deletion impact: orphaned dependents (fully/partially), broken parents, affected siblings
+  - Remove dependency impact: readiness cascade effects
+  - Performance: 1,110 artifacts analyzed in 330ms (<1s requirement)
+
+  **Cancellation Impact Analysis (C.8.2)**
+
+  - analyzeCancellation() with specialized CancellationImpactReport
+  - Detects parent completion state changes (cancelled siblings count as done)
+  - Identifies dependents that become unblocked
+  - 19 tests with 100% coverage
+
+  **Deletion Impact Analysis (C.8.3)**
+
+  - analyzeDeletion() with specialized DeletionImpactReport
+  - Identifies fully/partially orphaned dependents
+  - Detects broken parent references
+  - Analyzes affected siblings (can help complete vs. blocking)
+  - 24 tests with 100% coverage
+
+  **CLI Output Formatting (C.8.4)**
+
+  - ImpactReportFormatter class with format(report, operation) method
+  - ANSI color-coded output: red (errors), yellow (warnings), green (safe)
+  - Specialized formatters for each report type with tailored symbols (✓ ⚠️ ✗ ℹ •)
+  - JSON output mode for programmatic consumption
+  - Verbose mode for detailed debugging
+  - noColor option for CI/automation environments
+  - 16 tests with 88.05% statement coverage, 84.21% branch coverage
+
+  **Integration Tests (C.8.5)**
+
+  - 21 E2E integration tests with complex artifact graph
+  - 12+ artifacts across 2 initiatives, 3 milestones, 9 issues
+  - Tests cover all report types and output formats
+  - Multi-level cascade scenarios spanning multiple artifact levels
+  - 95.2% statement coverage, 85.52% branch coverage, 100% function coverage
+
+  **Exported Public API**
+
+  - ImpactAnalyzer: Core analysis engine
+  - ImpactReportFormatter: CLI and JSON output formatting
+  - Type exports: ImpactReport, CancellationImpactReport, DeletionImpactReport, ImpactOperation, ImpactedArtifact
+  - FormatOptions: Configuration for output formatting
+
+  **Testing & Quality**
+
+  - 107 tests passing across all modules
+  - 95.2% overall statement coverage (exceeds ≥85% requirement)
+  - Type-safe operation-specific reports
+  - Memory-efficient graph traversal with caching
+
+  Resolves C.8 milestone - Impact Analysis System
+
 ## 0.6.0
 
 ### Minor Changes
