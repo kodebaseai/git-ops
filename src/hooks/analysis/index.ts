@@ -18,3 +18,8 @@ export type {
   ParentCompletionImpact,
 } from "./impact-analyzer.js";
 export { ImpactAnalyzer } from "./impact-analyzer.js";
+export type {
+  FormatOptions,
+  OutputFormat,
+} from "./impact-report-formatter.js";
+export { ImpactReportFormatter } from "./impact-report-formatter.js";
