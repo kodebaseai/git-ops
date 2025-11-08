@@ -3,6 +3,9 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CascadeResultBuilder } from "../../../../../test/builders/cascade-result-builder.js";
+import { MergeMetadataBuilder } from "../../../../../test/builders/merge-metadata-builder.js";
+import { OrchestrationResultBuilder } from "../../../../../test/builders/orchestration-result-builder.js";
 import * as execModule from "../../utils/exec.js";
 import type { MergeMetadata } from "../detection/post-merge-types.js";
 import type { OrchestrationResult } from "../orchestration/post-merge-orchestrator-types.js";
@@ -16,85 +19,8 @@ vi.mock("../../utils/exec.js", () => ({
 
 describe("createCascadeCommit", () => {
   const execAsyncMock = vi.mocked(execModule.execAsync);
-
-  // Mock data
-  const mockMergeMetadata: MergeMetadata = {
-    artifactIds: ["C.1.1", "C.1.2"],
-    prNumber: 123,
-    prTitle: "Test PR",
-    prBody: null,
-    sourceBranch: "feature-branch",
-    targetBranch: "main",
-    commitSha: "abc123",
-    isPRMerge: true,
-  };
-
-  const mockCascadeResults: OrchestrationResult = {
-    mergeMetadata: mockMergeMetadata,
-    completionCascade: {
-      updatedArtifacts: [
-        {
-          artifact: {
-            metadata: {
-              title: "Test Artifact",
-              priority: "high",
-              estimation: "M",
-              created_by: "test@example.com",
-              schema_version: "0.0.1",
-              events: [],
-            },
-            content: {
-              summary: "Test",
-              acceptance_criteria: [],
-            },
-          },
-          filePath: ".kodebase/artifacts/C.1.1.yml",
-        },
-      ],
-      events: [
-        {
-          artifactId: "C.1.1",
-          event: "completed",
-          timestamp: "2025-11-05T10:00:00Z",
-          actor: "System",
-          trigger: "cascade",
-        },
-      ],
-    },
-    readinessCascade: {
-      updatedArtifacts: [
-        {
-          artifact: {
-            metadata: {
-              title: "Test Artifact 2",
-              priority: "high",
-              estimation: "M",
-              created_by: "test@example.com",
-              schema_version: "0.0.1",
-              events: [],
-            },
-            content: {
-              summary: "Test",
-              acceptance_criteria: [],
-            },
-          },
-          filePath: ".kodebase/artifacts/C.1.2.yml",
-        },
-      ],
-      events: [
-        {
-          artifactId: "C.1.2",
-          event: "ready",
-          timestamp: "2025-11-05T10:01:00Z",
-          actor: "System",
-          trigger: "cascade",
-        },
-      ],
-    },
-    summary: "Updated 2 artifacts",
-    totalArtifactsUpdated: 2,
-    totalEventsAdded: 2,
-  };
+  let mockMergeMetadata: MergeMetadata;
+  let mockCascadeResults: OrchestrationResult;
 
   const mockAttribution: CascadeCommitAttribution = {
     agentName: "Kodebase GitOps",
@@ -105,6 +31,38 @@ describe("createCascadeCommit", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+
+    mockMergeMetadata = MergeMetadataBuilder.prMerge()
+      .withArtifacts("C.1.1", "C.1.2")
+      .withPRNumber(123)
+      .withPRTitle("Test PR")
+      .withSourceBranch("feature-branch")
+      .withCommitSha("abc123")
+      .build();
+
+    mockCascadeResults = new OrchestrationResultBuilder()
+      .withMergeMetadata(mockMergeMetadata)
+      .withCompletionCascade((cascade) =>
+        cascade.withUpdatedArtifacts("C.1.1").withEvents({
+          artifactId: "C.1.1",
+          event: "completed",
+          timestamp: "2025-11-05T10:00:00Z",
+          actor: "System",
+          trigger: "cascade",
+        }),
+      )
+      .withReadinessCascade((cascade) =>
+        cascade.withUpdatedArtifacts("C.1.2").withEvents({
+          artifactId: "C.1.2",
+          event: "ready",
+          timestamp: "2025-11-05T10:01:00Z",
+          actor: "System",
+          trigger: "cascade",
+        }),
+      )
+      .withSummary("Updated 2 artifacts")
+      .deriveTotalsFromCascades()
+      .build();
   });
 
   describe("successful commit creation", () => {
@@ -252,13 +210,11 @@ describe("createCascadeCommit", () => {
         .mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 })
         .mockResolvedValueOnce({ stdout: "sha123", stderr: "", exitCode: 0 });
 
-      const resultsNoPR: OrchestrationResult = {
-        ...mockCascadeResults,
-        mergeMetadata: {
-          ...mockMergeMetadata,
-          prNumber: null,
-        },
-      };
+      const resultsNoPR = new OrchestrationResultBuilder(mockCascadeResults)
+        .withMergeMetadata(
+          MergeMetadataBuilder.from(mockMergeMetadata).withPRNumber(null),
+        )
+        .build();
 
       const attributionNoPR: CascadeCommitAttribution = {
         ...mockAttribution,
@@ -300,11 +256,9 @@ describe("createCascadeCommit", () => {
 
   describe("no changes scenario", () => {
     it("should return success with no commit when no artifacts updated", async () => {
-      const emptyResults: OrchestrationResult = {
-        ...mockCascadeResults,
-        totalArtifactsUpdated: 0,
-        totalEventsAdded: 0,
-      };
+      const emptyResults = new OrchestrationResultBuilder(mockCascadeResults)
+        .withTotals({ artifacts: 0, events: 0 })
+        .build();
 
       const result = await createCascadeCommit({
         cascadeResults: emptyResults,
@@ -393,33 +347,29 @@ describe("createCascadeCommit", () => {
         .mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 })
         .mockResolvedValueOnce({ stdout: "sha123", stderr: "", exitCode: 0 });
 
-      const resultsMultipleEvents: OrchestrationResult = {
-        ...mockCascadeResults,
-        completionCascade: {
-          ...mockCascadeResults.completionCascade,
-          events: [
-            {
-              artifactId: "C.1.1",
-              event: "completed",
-              timestamp: "2025-11-05T10:00:00Z",
-              actor: "System",
-              trigger: "cascade",
-            },
-          ],
-        },
-        readinessCascade: {
-          ...mockCascadeResults.readinessCascade,
-          events: [
-            {
-              artifactId: "C.1.1",
-              event: "ready",
-              timestamp: "2025-11-05T10:01:00Z",
-              actor: "System",
-              trigger: "cascade",
-            },
-          ],
-        },
-      };
+      const resultsMultipleEvents = new OrchestrationResultBuilder(
+        mockCascadeResults,
+      )
+        .withCompletionCascade((cascade) =>
+          cascade.withUpdatedArtifacts("C.1.1").withEvents({
+            artifactId: "C.1.1",
+            event: "completed",
+            timestamp: "2025-11-05T10:00:00Z",
+            actor: "System",
+            trigger: "cascade",
+          }),
+        )
+        .withReadinessCascade((cascade) =>
+          cascade.withUpdatedArtifacts("C.1.1").withEvents({
+            artifactId: "C.1.1",
+            event: "ready",
+            timestamp: "2025-11-05T10:01:00Z",
+            actor: "System",
+            trigger: "cascade",
+          }),
+        )
+        .deriveTotalsFromCascades()
+        .build();
 
       const result = await createCascadeCommit({
         cascadeResults: resultsMultipleEvents,
@@ -435,11 +385,9 @@ describe("createCascadeCommit", () => {
         .mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 })
         .mockResolvedValueOnce({ stdout: "sha123", stderr: "", exitCode: 0 });
 
-      const resultsUnsorted: OrchestrationResult = {
-        ...mockCascadeResults,
-        completionCascade: {
-          ...mockCascadeResults.completionCascade,
-          events: [
+      const resultsUnsorted = new OrchestrationResultBuilder(mockCascadeResults)
+        .withCompletionCascade((cascade) =>
+          cascade.withUpdatedArtifacts("C.2.1", "C.1.1").withEvents(
             {
               artifactId: "C.2.1",
               event: "completed",
@@ -454,13 +402,13 @@ describe("createCascadeCommit", () => {
               actor: "System",
               trigger: "cascade",
             },
-          ],
-        },
-        readinessCascade: {
-          updatedArtifacts: [],
-          events: [],
-        },
-      };
+          ),
+        )
+        .withReadinessCascade(
+          new CascadeResultBuilder().withUpdatedArtifacts("C.1.1"),
+        )
+        .deriveTotalsFromCascades()
+        .build();
 
       const result = await createCascadeCommit({
         cascadeResults: resultsUnsorted,

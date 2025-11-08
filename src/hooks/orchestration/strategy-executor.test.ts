@@ -5,7 +5,8 @@
 import type { KodebaseConfig } from "@kodebase/config";
 import { FakeGitAdapter } from "@kodebase/test-utils/fakes";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import type { MergeMetadata } from "../detection/post-merge-types.js";
+import { MergeMetadataBuilder } from "../../../../../test/builders/merge-metadata-builder.js";
+import { OrchestrationResultBuilder } from "../../../../../test/builders/orchestration-result-builder.js";
 import type { OrchestrationResult } from "./post-merge-orchestrator-types.js";
 import { StrategyExecutor } from "./strategy-executor.js";
 
@@ -62,47 +63,37 @@ describe("StrategyExecutor", () => {
     });
 
     // Mock cascade results
-    const mergeMetadata: MergeMetadata = {
-      artifactIds: ["A.1.5"],
-      prNumber: 42,
-      prTitle: "Test PR",
-      prBody: null,
-      sourceBranch: "A.1.5",
-      targetBranch: "main",
-      commitSha: "abc123",
-      isPRMerge: true,
-    };
+    const mergeMetadata = MergeMetadataBuilder.prMerge()
+      .withArtifacts("A.1.5")
+      .withPRNumber(42)
+      .withPRTitle("Test PR")
+      .withSourceBranch("A.1.5")
+      .withCommitSha("abc123")
+      .build();
 
-    mockCascadeResults = {
-      mergeMetadata,
-      completionCascade: {
-        updatedArtifacts: [],
-        events: [
-          {
-            event: "in_review",
-            timestamp: new Date().toISOString(),
-            actor: "System",
-            trigger: "pr_merged",
-            artifactId: "A.1",
-          },
-        ],
-      },
-      readinessCascade: {
-        updatedArtifacts: [],
-        events: [
-          {
-            event: "ready",
-            timestamp: new Date().toISOString(),
-            actor: "System",
-            trigger: "dependencies_met",
-            artifactId: "A.1.7",
-          },
-        ],
-      },
-      summary: "Test cascade",
-      totalArtifactsUpdated: 2,
-      totalEventsAdded: 2,
-    };
+    mockCascadeResults = new OrchestrationResultBuilder()
+      .withMergeMetadata(mergeMetadata)
+      .withCompletionCascade((cascade) =>
+        cascade.withEvents({
+          artifactId: "A.1",
+          event: "in_review",
+          timestamp: new Date().toISOString(),
+          actor: "System",
+          trigger: "pr_merged",
+        }),
+      )
+      .withReadinessCascade((cascade) =>
+        cascade.withEvents({
+          artifactId: "A.1.7",
+          event: "ready",
+          timestamp: new Date().toISOString(),
+          actor: "System",
+          trigger: "dependencies_met",
+        }),
+      )
+      .withSummary("Test cascade")
+      .withTotals({ artifacts: 2, events: 2 })
+      .build();
 
     // Mock execAsync
     execAsyncMock = vi.fn();
@@ -119,11 +110,9 @@ describe("StrategyExecutor", () => {
   describe("execute()", () => {
     describe("no changes scenario", () => {
       it("should handle no cascade changes gracefully", async () => {
-        const emptyResults: OrchestrationResult = {
-          ...mockCascadeResults,
-          totalArtifactsUpdated: 0,
-          totalEventsAdded: 0,
-        };
+        const emptyResults = new OrchestrationResultBuilder(mockCascadeResults)
+          .withTotals({ artifacts: 0, events: 0 })
+          .build();
 
         const result = await executor.execute({
           strategy: "cascade_pr",

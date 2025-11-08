@@ -4,6 +4,8 @@
 
 import type { CascadeResult, CascadeService } from "@kodebase/artifacts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CascadeResultBuilder } from "../../../../../test/builders/cascade-result-builder.js";
+import { MergeMetadataBuilder } from "../../../../../test/builders/merge-metadata-builder.js";
 
 import {
   createPostMergeOrchestrator,
@@ -27,42 +29,33 @@ describe("PostMergeOrchestrator", () => {
 
   describe("Basic orchestration", () => {
     it("should execute completion cascade followed by readiness cascade", async () => {
-      const mergeMetadata: MergeMetadata = {
-        targetBranch: "main",
-        sourceBranch: "feature/A.1.5",
-        commitSha: "abc123",
-        prNumber: 42,
-        prTitle: "Implement A.1.5",
-        prBody: null,
-        isPRMerge: true,
-        artifactIds: ["A.1.5"],
-      };
+      const mergeMetadata: MergeMetadata = MergeMetadataBuilder.prMerge()
+        .withArtifacts("A.1.5")
+        .withPRNumber(42)
+        .withPRTitle("Implement A.1.5")
+        .withSourceBranch("feature/A.1.5")
+        .withCommitSha("abc123")
+        .build();
 
-      const completionResult: CascadeResult = {
-        updatedArtifacts: [],
-        events: [
-          {
-            artifactId: "A.1",
-            event: "in_review",
-            timestamp: "2025-11-05T18:00:00Z",
-            actor: "System Cascade",
-            trigger: "children_completed",
-          },
-        ],
-      };
+      const completionResult: CascadeResult = CascadeResultBuilder.completion()
+        .withEvents({
+          artifactId: "A.1",
+          event: "in_review",
+          timestamp: "2025-11-05T18:00:00Z",
+          actor: "System Cascade",
+          trigger: "children_completed",
+        })
+        .build();
 
-      const readinessResult: CascadeResult = {
-        updatedArtifacts: [],
-        events: [
-          {
-            artifactId: "A.1.7",
-            event: "ready",
-            timestamp: "2025-11-05T18:00:01Z",
-            actor: "System Cascade",
-            trigger: "dependencies_met",
-          },
-        ],
-      };
+      const readinessResult: CascadeResult = CascadeResultBuilder.readiness()
+        .withEvents({
+          artifactId: "A.1.7",
+          event: "ready",
+          timestamp: "2025-11-05T18:00:01Z",
+          actor: "System Cascade",
+          trigger: "dependencies_met",
+        })
+        .build();
 
       vi.mocked(mockCascadeService.executeCompletionCascade).mockResolvedValue(
         completionResult,
