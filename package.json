@@ -34,6 +34,7 @@
     "test:coverage": "vitest run --coverage",
     "test:mutation": "stryker run",
     "test:mutation:force": "stryker run --force",
+    "test:contracts": "vitest run --coverage.enabled=false src/adapters/__contracts__/*.contract.test.ts src/hooks/core/__contracts__/*.contract.test.ts src/hooks/detection/__contracts__/*.contract.test.ts",
     "prepack": "pnpm lint:package"
   },
   "dependencies": {

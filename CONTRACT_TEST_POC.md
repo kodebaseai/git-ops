@@ -162,20 +162,22 @@ expect(pr.number).toBe(1);
 expect(adapter.getState().prs.size).toBe(1);
 ```
 
-### Running Contract Against Real Implementation
-```typescript
-import { contractGitPlatformAdapter } from './__contracts__/git-platform-adapter.contract';
-import { GitHubAdapter } from '../github';
+### Running Contract Suites
+Use the shared entry point and the `test:contracts` script added in `package.json`:
 
-// Requires GITHUB_TOKEN environment variable
-if (process.env.GITHUB_TOKEN) {
-  contractGitPlatformAdapter(
-    'GitHubAdapter',
-    async () => new GitHubAdapter({ token: process.env.GITHUB_TOKEN }),
-    { timeout: 5000 } // Network operations need more time
-  );
-}
+```bash
+GITHUB_TOKEN=ghp_xxx pnpm --filter @kodebase/git-ops test:contracts
 ```
+
+This command runs:
+1. `contractGitPlatformAdapter` for both `FakeGitAdapter` and `GitHubAdapter` (the real adapter runs only when `GITHUB_TOKEN` is set).
+2. `contractHookExecutor` against the real `HookExecutor` implementation, verifying non-blocking/blocking behavior using injected failures.
+3. `contractDetectorService` against both `PostCheckoutDetector` and `PostMergeDetector` using scenario factories defined under `src/hooks/detection/__contracts__/`.
+
+### Adding New Implementations
+1. **Adapters**: export the new adapter and add a corresponding contract runner that constructs it via a factory. If it talks to a live service, guard it with the required env vars.
+2. **Services** (HookExecutor/Detectors): create a runner under `src/**/__contracts__/` that adapts the real implementation to the shared contract API (you can override private methods via strongly-typed helpers instead of `any`).
+3. **CI**: make sure `test:contracts` is part of the pipeline (Turborepo `test:contracts` task already depends on parents, so it runs on PR + main tiers).
 
 ## Files Created
 
@@ -196,3 +198,19 @@ This POC demonstrates that contract testing is:
 - ✅ **Valuable** - Catches real bugs, enables refactoring
 
 **Ready for production use!**
+
+## Contract Test Quick Start
+
+Once you have the environment ready:
+
+1. **Run all contract suites**
+   ```bash
+   # requires GITHUB_TOKEN for the GitHub adapter run
+   GITHUB_TOKEN=ghp_xxx pnpm --filter @kodebase/git-ops test:contracts
+   ```
+2. **Add a new adapter/service**
+   - Export it from `@kodebase/...` and create a runner under `src/**/__contracts__/`.
+   - Use the shared factories from `@kodebase/test-utils/contracts`.
+   - Guard real-network tests behind env vars/secrets.
+3. **CI integration**
+   - Turborepo task `test:contracts` runs on PR + main tiers. Keep it fast (<1s) by relying on fakes/stubs whenever secrets are absent.
