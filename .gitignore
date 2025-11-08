@@ -7,6 +7,8 @@ dist
 # Testing
 coverage
 coverage.json
+reports/
+.stryker-tmp
 
 # Turbo cache
 .turbo

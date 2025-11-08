@@ -32,6 +32,8 @@
     "format": "biome format .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:mutation": "stryker run",
+    "test:mutation:force": "stryker run --force",
     "prepack": "pnpm lint:package"
   },
   "dependencies": {
@@ -43,6 +45,8 @@
     "@arethetypeswrong/cli": "^0.18.2",
     "@kodebase/test-utils": "workspace:*",
     "@kodebase/typescript-config": "workspace:*",
+    "@stryker-mutator/core": "^9.3.0",
+    "@stryker-mutator/vitest-runner": "^9.3.0",
     "@types/node": "^22.19.0",
     "@vitest/coverage-istanbul": "^4.0.7",
     "@vitest/coverage-v8": "^4.0.7",
