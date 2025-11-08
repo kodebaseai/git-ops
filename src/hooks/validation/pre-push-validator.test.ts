@@ -1,25 +1,108 @@
 /**
  * Tests for pre-push validator.
- *
- * Note: These tests are currently skipped due to Zod registry conflicts
- * when mocking @kodebase/core imports. The implementation has been manually
- * verified through integration testing.
- *
- * TODO: Refactor to use dependency injection or test in isolation
  */
 
 import type { TAnyArtifact } from "@kodebase/core";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import * as exec from "../../utils/exec.js";
-import * as branchValidator from "./branch-validator.js";
 import { validatePrePush } from "./pre-push-validator.js";
 
 // Mock dependencies
 vi.mock("../../utils/exec.js");
-vi.mock("@kodebase/artifacts");
-vi.mock("./branch-validator.js");
 
-describe.skip("pre-push-validator", () => {
+const createQueryServiceMock = (artifacts: Record<string, TAnyArtifact>) => ({
+  findArtifacts: vi
+    .fn()
+    .mockResolvedValue(
+      Object.entries(artifacts).map(([id, artifact]) => ({ id, artifact })),
+    ),
+});
+
+const createDraftArtifact = (): TAnyArtifact =>
+  ({
+    metadata: {
+      title: "Draft Artifact",
+      priority: "high",
+      schema_version: "0.0.1",
+      relationships: {
+        blocks: [],
+        blocked_by: [],
+      },
+      events: [
+        {
+          event: "draft",
+          timestamp: "2025-11-06T12:00:00Z",
+          actor: "test",
+          trigger: "artifact_created",
+        },
+      ],
+    },
+    content: {
+      summary: "Test artifact in draft",
+    },
+  }) as TAnyArtifact;
+
+const createBlockedArtifact = (): TAnyArtifact =>
+  ({
+    metadata: {
+      title: "Blocked Artifact",
+      priority: "high",
+      schema_version: "0.0.1",
+      relationships: {
+        blocks: [],
+        blocked_by: ["A.1.1"],
+      },
+      events: [
+        {
+          event: "draft",
+          timestamp: "2025-11-06T12:00:00Z",
+          actor: "test",
+          trigger: "artifact_created",
+        },
+        {
+          event: "blocked",
+          timestamp: "2025-11-06T12:05:00Z",
+          actor: "test",
+          trigger: "has_dependencies",
+        },
+      ],
+    },
+    content: {
+      summary: "Test artifact that is blocked",
+    },
+  }) as TAnyArtifact;
+
+const createInProgressArtifact = (): TAnyArtifact =>
+  ({
+    metadata: {
+      title: "Valid Artifact",
+      priority: "high",
+      schema_version: "0.0.1",
+      relationships: {
+        blocks: [],
+        blocked_by: [],
+      },
+      events: [
+        {
+          event: "draft",
+          timestamp: "2025-11-06T12:00:00Z",
+          actor: "test",
+          trigger: "artifact_created",
+        },
+        {
+          event: "in_progress",
+          timestamp: "2025-11-06T12:05:00Z",
+          actor: "test",
+          trigger: "branch_created",
+        },
+      ],
+    },
+    content: {
+      summary: "Test artifact in progress",
+    },
+  }) as TAnyArtifact;
+
+describe("pre-push-validator", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -30,9 +113,7 @@ describe.skip("pre-push-validator", () => {
 
   describe("validatePrePush", () => {
     test("should return no warnings for clean branch", async () => {
-      // Mock: no artifact IDs in branch
-      vi.mocked(branchValidator.extractArtifactIds).mockReturnValue([]);
-
+      // Branch contains no artifact IDs
       // Mock: no uncommitted changes
       vi.mocked(exec.execAsync).mockResolvedValue({
         stdout: "",
@@ -47,9 +128,7 @@ describe.skip("pre-push-validator", () => {
     });
 
     test("should detect uncommitted changes", async () => {
-      // Mock: no artifact IDs in branch
-      vi.mocked(branchValidator.extractArtifactIds).mockReturnValue([]);
-
+      // Branch contains no artifact IDs
       // Mock: uncommitted changes in artifacts directory
       vi.mocked(exec.execAsync).mockResolvedValue({
         stdout:
@@ -69,9 +148,7 @@ describe.skip("pre-push-validator", () => {
     });
 
     test("should warn about draft artifacts", async () => {
-      // Mock: artifact ID in branch
-      vi.mocked(branchValidator.extractArtifactIds).mockReturnValue(["A.1.1"]);
-
+      // Branch embeds artifact ID
       // Mock: no uncommitted changes
       vi.mocked(exec.execAsync).mockResolvedValue({
         stdout: "",
@@ -79,35 +156,11 @@ describe.skip("pre-push-validator", () => {
         exitCode: 0,
       });
 
-      // Mock: artifact in draft state
-      const draftArtifact: TAnyArtifact = {
-        metadata: {
-          title: "Draft Artifact",
-          priority: "high",
-          schema_version: "0.0.1",
-          relationships: {
-            blocks: [],
-            blocked_by: [],
-          },
-          events: [
-            {
-              event: "draft",
-              timestamp: "2025-11-06T12:00:00Z",
-              actor: "test",
-              trigger: "artifact_created",
-            },
-          ],
-        },
-        content: {
-          summary: "Test artifact in draft",
-        },
-      } as TAnyArtifact;
+      const queryService = createQueryServiceMock({
+        "A.1.1": createDraftArtifact(),
+      });
 
-      vi.mocked(artifactLoader.loadArtifactMetadata).mockResolvedValue(
-        draftArtifact,
-      );
-
-      const result = await validatePrePush("A.1.1");
+      const result = await validatePrePush("A.1.1", { queryService });
 
       expect(result.hasWarnings).toBe(true);
       expect(result.warnings.some((w) => w.type === "DRAFT_ARTIFACT")).toBe(
@@ -119,9 +172,7 @@ describe.skip("pre-push-validator", () => {
     });
 
     test("should warn about blocked artifacts", async () => {
-      // Mock: artifact ID in branch
-      vi.mocked(branchValidator.extractArtifactIds).mockReturnValue(["A.1.2"]);
-
+      // Branch embeds artifact ID
       // Mock: no uncommitted changes
       vi.mocked(exec.execAsync).mockResolvedValue({
         stdout: "",
@@ -129,41 +180,11 @@ describe.skip("pre-push-validator", () => {
         exitCode: 0,
       });
 
-      // Mock: artifact in blocked state
-      const blockedArtifact: TAnyArtifact = {
-        metadata: {
-          title: "Blocked Artifact",
-          priority: "high",
-          schema_version: "0.0.1",
-          relationships: {
-            blocks: [],
-            blocked_by: ["A.1.1"],
-          },
-          events: [
-            {
-              event: "draft",
-              timestamp: "2025-11-06T12:00:00Z",
-              actor: "test",
-              trigger: "artifact_created",
-            },
-            {
-              event: "blocked",
-              timestamp: "2025-11-06T12:05:00Z",
-              actor: "test",
-              trigger: "has_dependencies",
-            },
-          ],
-        },
-        content: {
-          summary: "Test artifact that is blocked",
-        },
-      } as TAnyArtifact;
+      const queryService = createQueryServiceMock({
+        "A.1.2": createBlockedArtifact(),
+      });
 
-      vi.mocked(artifactLoader.loadArtifactMetadata).mockResolvedValue(
-        blockedArtifact,
-      );
-
-      const result = await validatePrePush("A.1.2");
+      const result = await validatePrePush("A.1.2", { queryService });
 
       expect(result.hasWarnings).toBe(true);
       expect(result.warnings.some((w) => w.type === "BLOCKED_ARTIFACT")).toBe(
@@ -172,9 +193,7 @@ describe.skip("pre-push-validator", () => {
     });
 
     test("should handle artifacts with no warnings", async () => {
-      // Mock: artifact ID in branch
-      vi.mocked(branchValidator.extractArtifactIds).mockReturnValue(["A.1.3"]);
-
+      // Branch embeds artifact ID
       // Mock: no uncommitted changes
       vi.mocked(exec.execAsync).mockResolvedValue({
         stdout: "",
@@ -182,50 +201,18 @@ describe.skip("pre-push-validator", () => {
         exitCode: 0,
       });
 
-      // Mock: artifact in in_progress state (valid)
-      const validArtifact: TAnyArtifact = {
-        metadata: {
-          title: "Valid Artifact",
-          priority: "high",
-          schema_version: "0.0.1",
-          relationships: {
-            blocks: [],
-            blocked_by: [],
-          },
-          events: [
-            {
-              event: "draft",
-              timestamp: "2025-11-06T12:00:00Z",
-              actor: "test",
-              trigger: "artifact_created",
-            },
-            {
-              event: "in_progress",
-              timestamp: "2025-11-06T12:05:00Z",
-              actor: "test",
-              trigger: "branch_created",
-            },
-          ],
-        },
-        content: {
-          summary: "Test artifact in progress",
-        },
-      } as TAnyArtifact;
+      const queryService = createQueryServiceMock({
+        "A.1.3": createInProgressArtifact(),
+      });
 
-      vi.mocked(artifactLoader.loadArtifactMetadata).mockResolvedValue(
-        validArtifact,
-      );
-
-      const result = await validatePrePush("A.1.3");
+      const result = await validatePrePush("A.1.3", { queryService });
 
       expect(result.hasWarnings).toBe(false);
       expect(result.warnings).toHaveLength(0);
     });
 
     test("should handle multiple warnings", async () => {
-      // Mock: artifact ID in branch
-      vi.mocked(branchValidator.extractArtifactIds).mockReturnValue(["A.1.1"]);
-
+      // Branch embeds artifact ID
       // Mock: uncommitted changes
       vi.mocked(exec.execAsync).mockResolvedValue({
         stdout: " M .kodebase/artifacts/A/A.1/A.1.1.yml\n",
@@ -233,54 +220,31 @@ describe.skip("pre-push-validator", () => {
         exitCode: 0,
       });
 
-      // Mock: artifact in draft state
-      const draftArtifact: TAnyArtifact = {
-        metadata: {
-          title: "Draft Artifact",
-          priority: "high",
-          schema_version: "0.0.1",
-          relationships: {
-            blocks: [],
-            blocked_by: [],
-          },
-          events: [
-            {
-              event: "draft",
-              timestamp: "2025-11-06T12:00:00Z",
-              actor: "test",
-              trigger: "artifact_created",
-            },
-          ],
-        },
-        content: {
-          summary: "Test artifact",
-        },
-      } as TAnyArtifact;
+      const queryService = createQueryServiceMock({
+        "A.1.1": createDraftArtifact(),
+      });
 
-      vi.mocked(artifactLoader.loadArtifactMetadata).mockResolvedValue(
-        draftArtifact,
-      );
-
-      const result = await validatePrePush("A.1.1");
+      const result = await validatePrePush("A.1.1", { queryService });
 
       expect(result.hasWarnings).toBe(true);
       expect(result.warnings.length).toBeGreaterThanOrEqual(2); // Uncommitted + Draft
     });
 
     test("should support disabling checks", async () => {
-      // Mock: artifact ID in branch
-      vi.mocked(branchValidator.extractArtifactIds).mockReturnValue(["A.1.1"]);
-
-      // Mock: uncommitted changes
+      // Branch embeds artifact ID
       vi.mocked(exec.execAsync).mockResolvedValue({
         stdout: " M .kodebase/artifacts/A/A.1/A.1.1.yml\n",
         stderr: "",
         exitCode: 0,
       });
 
-      // Disable uncommitted changes check
+      const queryService = createQueryServiceMock({
+        "A.1.1": createDraftArtifact(),
+      });
+
       const result = await validatePrePush("A.1.1", {
         checkUncommitted: false,
+        queryService,
       });
 
       // Should not have uncommitted changes warning
@@ -290,31 +254,25 @@ describe.skip("pre-push-validator", () => {
     });
 
     test("should handle artifact loading errors gracefully", async () => {
-      // Mock: artifact ID in branch
-      vi.mocked(branchValidator.extractArtifactIds).mockReturnValue(["A.1.1"]);
-
-      // Mock: no uncommitted changes
+      // Branch embeds artifact ID
       vi.mocked(exec.execAsync).mockResolvedValue({
         stdout: "",
         stderr: "",
         exitCode: 0,
       });
 
-      // Mock: artifact loading fails
-      vi.mocked(artifactLoader.loadArtifactMetadata).mockRejectedValue(
-        new Error("File not found"),
-      );
+      const queryService = {
+        findArtifacts: vi.fn().mockRejectedValue(new Error("File not found")),
+      };
 
-      const result = await validatePrePush("A.1.1");
+      const result = await validatePrePush("A.1.1", { queryService });
 
       // Should not crash, just no state warnings
       expect(result.hasWarnings).toBe(false);
     });
 
     test("should handle git command errors gracefully", async () => {
-      // Mock: artifact ID in branch
-      vi.mocked(branchValidator.extractArtifactIds).mockReturnValue([]);
-
+      // Branch contains no artifact IDs
       // Mock: git command fails
       vi.mocked(exec.execAsync).mockResolvedValue({
         stdout: "",
@@ -331,9 +289,7 @@ describe.skip("pre-push-validator", () => {
     });
 
     test("should limit files shown in uncommitted changes warning", async () => {
-      // Mock: no artifact IDs in branch
-      vi.mocked(branchValidator.extractArtifactIds).mockReturnValue([]);
-
+      // Branch contains no artifact IDs
       // Mock: many uncommitted files
       const manyFiles = Array.from(
         { length: 10 },

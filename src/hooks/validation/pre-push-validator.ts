@@ -9,7 +9,7 @@
  * @module pre-push-validator
  */
 
-import { QueryService } from "@kodebase/artifacts";
+import { type ArtifactWithId, QueryService } from "@kodebase/artifacts";
 import type { TAnyArtifact } from "@kodebase/core";
 import {
   ARTIFACT_ID_REGEX,
@@ -62,6 +62,8 @@ export interface PrePushValidationOptions {
   checkStates?: boolean;
   /** Whether to check dependencies (default: true) */
   checkDependencies?: boolean;
+  /** Optional query service override for testing */
+  queryService?: Pick<QueryService, "findArtifacts">;
 }
 
 /**
@@ -100,6 +102,7 @@ export async function validatePrePush(
     artifactsDir = ".kodebase/artifacts",
     checkUncommitted = true,
     checkStates = true,
+    queryService: injectedQueryService,
   } = options;
 
   const warnings: PrePushWarning[] = [];
@@ -115,8 +118,15 @@ export async function validatePrePush(
 
   // Check artifact states
   if (checkStates && artifactIds.length > 0) {
-    const queryService = new QueryService(process.cwd());
-    const allArtifacts = await queryService.findArtifacts({});
+    const queryService =
+      injectedQueryService ?? new QueryService(process.cwd());
+    let allArtifacts: ArtifactWithId[] = [];
+
+    try {
+      allArtifacts = await queryService.findArtifacts({});
+    } catch {
+      allArtifacts = [];
+    }
 
     for (const artifactId of artifactIds) {
       try {
