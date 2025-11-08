@@ -6,7 +6,7 @@
  * Part of D.1.1 Contract Test Proof-of-Concept.
  */
 
-import { FakeGitAdapter } from "@kodebase/test-utils";
+import { FakeGitAdapter } from "@kodebase/test-utils/fakes";
 import { describe } from "vitest";
 import { contractGitPlatformAdapter } from "./git-platform-adapter.contract.js";
 

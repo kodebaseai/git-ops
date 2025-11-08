@@ -12,7 +12,7 @@ Validate that contract testing pattern works in practice by implementing a compl
 ## Deliverables
 
 ### 1. FakeGitAdapter (In-memory Implementation)
-**Location**: `src/adapters/__fakes__/fake-git-adapter.ts`
+**Location**: `packages/test-utils/src/git/fake-git-adapter.ts`
 
 - ✅ Fully functional in-memory implementation of GitPlatformAdapter
 - ✅ Zero external dependencies (no network, no filesystem)
@@ -145,7 +145,7 @@ pnpm test:coverage -- __contracts__/git-platform-adapter.contract.test.ts
 
 ### Using FakeGitAdapter in Tests
 ```typescript
-import { FakeGitAdapter } from '../__fakes__/fake-git-adapter';
+import { FakeGitAdapter } from '@kodebase/test-utils/fakes';
 
 const adapter = new FakeGitAdapter({
   authenticated: true,
@@ -179,7 +179,7 @@ if (process.env.GITHUB_TOKEN) {
 
 ## Files Created
 
-1. `src/adapters/__fakes__/fake-git-adapter.ts` (331 lines)
+1. `packages/test-utils/src/git/fake-git-adapter.ts` (shared, 331 lines)
 2. `src/adapters/__contracts__/git-platform-adapter.contract.ts` (476 lines)
 3. `src/adapters/__contracts__/git-platform-adapter.contract.test.ts` (32 lines)
 4. `CONTRACT_TEST_POC.md` (this file)

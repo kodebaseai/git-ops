@@ -3,8 +3,8 @@
  */
 
 import type { KodebaseConfig } from "@kodebase/config";
+import { FakeGitAdapter } from "@kodebase/test-utils/fakes";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import type { GitPlatformAdapter, PRInfo } from "../../types/adapter.js";
 import type { MergeMetadata } from "../detection/post-merge-types.js";
 import type { OrchestrationResult } from "./post-merge-orchestrator-types.js";
 import { StrategyExecutor } from "./strategy-executor.js";
@@ -28,7 +28,7 @@ vi.mock("../../utils/exec.js", () => ({
 describe("StrategyExecutor", () => {
   let executor: StrategyExecutor;
   let mockConfig: KodebaseConfig;
-  let mockAdapter: GitPlatformAdapter;
+  let fakeAdapter: FakeGitAdapter;
   let mockCascadeResults: OrchestrationResult;
   let execAsyncMock: Mock;
 
@@ -55,20 +55,11 @@ describe("StrategyExecutor", () => {
       },
     };
 
-    // Mock adapter
-    mockAdapter = {
-      platform: "github",
-      createPR: vi.fn(),
-      enableAutoMerge: vi.fn(),
-      mergePR: vi.fn(),
-      createDraftPR: vi.fn(),
-      getPR: vi.fn(),
-      validateAuth: vi.fn(),
-      getBranch: vi.fn(),
-      getCurrentBranch: vi.fn(),
-      getRemoteUrl: vi.fn(),
-      isAvailable: vi.fn(),
-    } as unknown as GitPlatformAdapter;
+    // Shared fake adapter
+    fakeAdapter = new FakeGitAdapter({
+      authenticated: true,
+      user: "kodebase-bot",
+    });
 
     // Mock cascade results
     const mergeMetadata: MergeMetadata = {
@@ -119,9 +110,9 @@ describe("StrategyExecutor", () => {
 
     // Create executor with mocked dependencies
     executor = new StrategyExecutor(
-      { gitRoot: "/test/repo", repoPath: "/test/repo" },
+      { gitRoot: "/test/repo", repoPath: "org/repo" },
       mockConfig,
-      mockAdapter,
+      fakeAdapter,
     );
   });
 
@@ -167,9 +158,9 @@ describe("StrategyExecutor", () => {
         );
 
         const executorWithoutConfig = new StrategyExecutor(
-          { gitRoot: "/test/repo" },
+          { gitRoot: "/test/repo", repoPath: "org/repo" },
           undefined,
-          mockAdapter,
+          new FakeGitAdapter(),
         );
 
         const result = await executorWithoutConfig.execute({
@@ -196,16 +187,6 @@ describe("StrategyExecutor", () => {
         .mockResolvedValueOnce({ stdout: "", exitCode: 0 }) // git commit
         .mockResolvedValueOnce({ stdout: "sha123", exitCode: 0 }) // git rev-parse HEAD
         .mockResolvedValueOnce({ stdout: "", exitCode: 0 }); // git push
-
-      // Mock PR creation
-      const mockPRInfo: PRInfo = {
-        number: 43,
-        state: "open",
-        title: "[Automated] Cascade updates from PR #42",
-        url: "https://github.com/org/repo/pull/43",
-      };
-      vi.mocked(mockAdapter.createPR).mockResolvedValueOnce(mockPRInfo);
-      vi.mocked(mockAdapter.mergePR).mockResolvedValueOnce(undefined);
     });
 
     it("should create cascade PR successfully", async () => {
@@ -217,8 +198,11 @@ describe("StrategyExecutor", () => {
       expect(result.success).toBe(true);
       expect(result.strategy).toBe("cascade_pr");
       expect(result.prInfo).toBeDefined();
-      expect(result.prInfo?.number).toBe(43);
-      expect(result.prInfo?.url).toBe("https://github.com/org/repo/pull/43");
+      expect(result.prInfo?.number).toBe(1);
+      expect(result.prInfo?.url).toBe("https://github.com/org/repo/pull/1");
+
+      const pr = await fakeAdapter.getPR(result.prInfo?.number ?? -1);
+      expect(pr?.title).toBe("[Automated] Cascade updates from PR #42");
     });
 
     it("should create branch with correct name", async () => {
@@ -275,14 +259,13 @@ describe("StrategyExecutor", () => {
         cascadeResults: mockCascadeResults,
       });
 
-      expect(mockAdapter.createPR).toHaveBeenCalledWith({
-        title: "[Automated] Cascade updates from PR #42",
-        body: expect.stringContaining("## Cascade Updates from PR #42"),
-        branch: "cascade/pr-42",
-        labels: ["automated", "cascade"],
-        repoPath: "/test/repo",
-        baseBranch: "main",
-      });
+      const createdPR = await fakeAdapter.getPR(1);
+      expect(createdPR).toBeDefined();
+      expect(createdPR?.title).toBe("[Automated] Cascade updates from PR #42");
+      expect(createdPR?.body).toContain("## Cascade Updates from PR #42");
+      expect(createdPR?.sourceBranch).toBe("cascade/pr-42");
+      expect(createdPR?.targetBranch).toBe("main");
+      expect(createdPR?.labels).toEqual(["automated", "cascade"]);
     });
 
     it("should auto-merge PR when configured", async () => {
@@ -291,9 +274,8 @@ describe("StrategyExecutor", () => {
         cascadeResults: mockCascadeResults,
       });
 
-      expect(mockAdapter.mergePR).toHaveBeenCalledWith(43, {
-        deleteBranch: true,
-      });
+      const pr = await fakeAdapter.getPR(result.prInfo?.number ?? -1);
+      expect(pr?.state).toBe("merged");
       expect(result.prInfo?.autoMerged).toBe(true);
     });
 
@@ -312,29 +294,26 @@ describe("StrategyExecutor", () => {
         },
       };
 
+      const adapterWithChecks = new FakeGitAdapter();
       const executorWithChecks = new StrategyExecutor(
-        { gitRoot: "/test/repo", repoPath: "/test/repo" },
+        { gitRoot: "/test/repo", repoPath: "org/repo" },
         configWithChecks,
-        mockAdapter,
+        adapterWithChecks,
       );
-
-      vi.mocked(mockAdapter.enableAutoMerge).mockResolvedValueOnce(undefined);
 
       await executorWithChecks.execute({
         strategy: "cascade_pr",
         cascadeResults: mockCascadeResults,
       });
 
-      expect(mockAdapter.enableAutoMerge).toHaveBeenCalledWith(43, {
-        deleteBranch: true,
-      });
+      const pr = await adapterWithChecks.getPR(1);
+      expect(pr?.autoMergeEnabled).toBe(true);
+      expect(pr?.state).toBe("open");
     });
 
     it("should handle PR creation failure", async () => {
       // Reset the beforeEach mocks completely
       execAsyncMock.mockReset();
-      vi.mocked(mockAdapter.createPR).mockReset();
-      vi.mocked(mockAdapter.mergePR).mockReset();
 
       // Set up git mocks for successful operations up to PR creation
       execAsyncMock
@@ -349,9 +328,9 @@ describe("StrategyExecutor", () => {
         .mockResolvedValueOnce({ stdout: "", exitCode: 0 }); // git push
 
       // Mock PR creation to fail
-      vi.mocked(mockAdapter.createPR).mockRejectedValueOnce(
-        new Error("API error"),
-      );
+      const createPRSpy = vi
+        .spyOn(fakeAdapter, "createPR")
+        .mockRejectedValueOnce(new Error("API error"));
 
       const result = await executor.execute({
         strategy: "cascade_pr",
@@ -360,6 +339,7 @@ describe("StrategyExecutor", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("API error");
+      createPRSpy.mockRestore();
     });
 
     it("should handle git command failures", async () => {
@@ -390,8 +370,6 @@ describe("StrategyExecutor", () => {
     it("should continue if auto-merge fails", async () => {
       // Reset the beforeEach mocks completely
       execAsyncMock.mockReset();
-      vi.mocked(mockAdapter.createPR).mockReset();
-      vi.mocked(mockAdapter.mergePR).mockReset();
 
       // Set up git mocks
       execAsyncMock
@@ -405,19 +383,9 @@ describe("StrategyExecutor", () => {
         .mockResolvedValueOnce({ stdout: "sha123", exitCode: 0 }) // git rev-parse HEAD
         .mockResolvedValueOnce({ stdout: "", exitCode: 0 }); // git push
 
-      // Mock PR creation
-      const mockPRInfo: PRInfo = {
-        number: 43,
-        state: "open",
-        title: "[Automated] Cascade updates from PR #42",
-        url: "https://github.com/org/repo/pull/43",
-      };
-      vi.mocked(mockAdapter.createPR).mockResolvedValueOnce(mockPRInfo);
-
-      // Mock mergePR to fail
-      vi.mocked(mockAdapter.mergePR).mockRejectedValueOnce(
-        new Error("Merge conflict"),
-      );
+      const mergeSpy = vi
+        .spyOn(fakeAdapter, "mergePR")
+        .mockRejectedValueOnce(new Error("Merge conflict"));
 
       const consoleWarnSpy = vi
         .spyOn(console, "warn")
@@ -434,6 +402,7 @@ describe("StrategyExecutor", () => {
       );
 
       consoleWarnSpy.mockRestore();
+      mergeSpy.mockRestore();
     });
 
     it("should use custom branch prefix from config", async () => {
@@ -450,16 +419,6 @@ describe("StrategyExecutor", () => {
         .mockResolvedValueOnce({ stdout: "sha123", stderr: "", exitCode: 0 }) // git rev-parse HEAD
         .mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 }); // git push
 
-      // Mock PR creation
-      const mockPRInfo: PRInfo = {
-        number: 43,
-        state: "open",
-        title: "[Automated] Cascade updates from PR #42",
-        url: "https://github.com/org/repo/pull/43",
-      };
-      vi.mocked(mockAdapter.createPR).mockResolvedValueOnce(mockPRInfo);
-      vi.mocked(mockAdapter.mergePR).mockResolvedValueOnce(undefined);
-
       const configWithPrefix = {
         ...mockConfig,
         gitOps: {
@@ -475,9 +434,9 @@ describe("StrategyExecutor", () => {
       };
 
       const executorWithPrefix = new StrategyExecutor(
-        { gitRoot: "/test/repo", repoPath: "/test/repo" },
+        { gitRoot: "/test/repo", repoPath: "org/repo" },
         configWithPrefix,
-        mockAdapter,
+        new FakeGitAdapter(),
       );
 
       await executorWithPrefix.execute({
@@ -584,9 +543,9 @@ describe("StrategyExecutor", () => {
       };
 
       const executorNoPush = new StrategyExecutor(
-        { gitRoot: "/test/repo" },
+        { gitRoot: "/test/repo", repoPath: "org/repo" },
         configNoPush,
-        mockAdapter,
+        new FakeGitAdapter(),
       );
 
       // Mock only commit commands (no push)
@@ -668,9 +627,9 @@ describe("StrategyExecutor", () => {
       };
 
       const executorWithPrefix = new StrategyExecutor(
-        { gitRoot: "/test/repo" },
+        { gitRoot: "/test/repo", repoPath: "org/repo" },
         configWithPrefix,
-        mockAdapter,
+        new FakeGitAdapter(),
       );
 
       await executorWithPrefix.execute({
@@ -720,7 +679,7 @@ describe("StrategyExecutor", () => {
       });
 
       expect(execAsyncMock).not.toHaveBeenCalled();
-      expect(mockAdapter.createPR).not.toHaveBeenCalled();
+      expect(fakeAdapter.getState().prs.size).toBe(0);
     });
   });
 
@@ -733,22 +692,13 @@ describe("StrategyExecutor", () => {
         })
         .mockResolvedValue({ stdout: "", exitCode: 0 });
 
-      const mockPRInfo: PRInfo = {
-        number: 43,
-        state: "open",
-        title: "Test",
-        url: "https://github.com/org/repo/pull/43",
-      };
-      vi.mocked(mockAdapter.createPR).mockResolvedValueOnce(mockPRInfo);
-      vi.mocked(mockAdapter.mergePR).mockResolvedValueOnce(undefined);
-
       await executor.execute({
         strategy: "cascade_pr",
         cascadeResults: mockCascadeResults,
       });
 
-      const createPRCall = vi.mocked(mockAdapter.createPR).mock.calls[0][0];
-      const body = createPRCall.body ?? "";
+      const pr = await fakeAdapter.getPR(1);
+      const body = pr?.body ?? "";
 
       expect(body).toContain("## Cascade Updates from PR #42");
       expect(body).toContain("### Merged Artifacts");

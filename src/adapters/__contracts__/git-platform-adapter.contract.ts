@@ -9,7 +9,7 @@
  * Usage:
  * ```typescript
  * import { contractGitPlatformAdapter } from './__contracts__/git-platform-adapter.contract';
- * import { FakeGitAdapter } from './__fakes__/fake-git-adapter';
+ * import { FakeGitAdapter } from '@kodebase/test-utils/fakes';
  *
  * contractGitPlatformAdapter(
  *   'FakeGitAdapter',
