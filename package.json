@@ -34,8 +34,8 @@
     "test:e2e": "vitest run --config vitest.config.e2e.ts",
     "test:all": "pnpm test && pnpm test:e2e",
     "test:coverage": "vitest run --coverage",
-    "test:mutation": "stryker run",
-    "test:mutation:force": "stryker run --force",
+    "test:mutation": "PATH=\"$PATH:../../node_modules/.pnpm/node_modules/.bin\" stryker run",
+    "test:mutation:force": "PATH=\"$PATH:../../node_modules/.pnpm/node_modules/.bin\" stryker run --force",
     "test:contracts": "vitest run --coverage.enabled=false src/adapters/__contracts__/*.contract.test.ts src/hooks/core/__contracts__/*.contract.test.ts src/hooks/detection/__contracts__/*.contract.test.ts",
     "prepack": "pnpm lint:package"
   },

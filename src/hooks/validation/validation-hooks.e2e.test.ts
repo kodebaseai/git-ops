@@ -260,9 +260,11 @@ describe("Validation Hooks E2E", () => {
         const schemaError = result.errors.find(
           (e) => e.type === "INVALID_SCHEMA",
         );
-        expect(schemaError?.message).toBeDefined();
-        expect(schemaError?.suggestedFix).toBeDefined();
-        expect(schemaError?.artifactId).toBe("C.1.1");
+        expect(schemaError).toMatchObject({
+          artifactId: "C.1.1",
+          message: expect.any(String),
+          suggestedFix: expect.any(String),
+        });
       } finally {
         process.chdir(originalCwd);
       }
@@ -295,8 +297,10 @@ describe("Validation Hooks E2E", () => {
         );
         expect(orphanError?.message).toContain("C.1.2");
         expect(orphanError?.message).toContain("does not exist");
-        expect(orphanError?.suggestedFix).toBeDefined();
-        expect(orphanError?.field).toBe("metadata.relationships.blocked_by");
+        expect(orphanError).toMatchObject({
+          field: "metadata.relationships.blocked_by",
+          suggestedFix: expect.any(String),
+        });
       } finally {
         process.chdir(originalCwd);
       }
@@ -410,14 +414,15 @@ content:
 
         // Verify each error has required fields for clarity
         for (const error of result.errors) {
-          expect(error.message).toBeDefined();
+          expect(typeof error.message).toBe("string");
           expect(error.message.length).toBeGreaterThan(0);
-          expect(error.type).toBeDefined();
-          expect(error.artifactId).toBeDefined();
+          expect(typeof error.type).toBe("string");
+          expect(typeof error.artifactId).toBe("string");
 
           // Should have either a field path or suggested fix (or both)
           expect(
-            error.field !== undefined || error.suggestedFix !== undefined,
+            typeof error.field === "string" ||
+              typeof error.suggestedFix === "string",
           ).toBe(true);
         }
       } finally {
@@ -456,7 +461,8 @@ content:
           (w) => w.type === "UNCOMMITTED_CHANGES",
         );
         expect(warning?.message).toContain("uncommitted");
-        expect(warning?.details).toBeDefined();
+        expect(typeof warning?.details).toBe("string");
+        expect(warning?.details).toContain(".kodebase/artifacts");
       } finally {
         process.chdir(originalCwd);
       }
@@ -583,13 +589,15 @@ content:
 
         // Verify each warning has required fields for clarity
         for (const warning of result.warnings) {
-          expect(warning.message).toBeDefined();
+          expect(typeof warning.message).toBe("string");
           expect(warning.message.length).toBeGreaterThan(0);
-          expect(warning.type).toBeDefined();
+          expect(typeof warning.type).toBe("string");
 
           // Warning should have details or artifact ID
           expect(
-            warning.details !== undefined || warning.artifactId !== undefined,
+            typeof warning.details === "string" ||
+              Array.isArray(warning.details) ||
+              typeof warning.artifactId === "string",
           ).toBe(true);
         }
       } finally {

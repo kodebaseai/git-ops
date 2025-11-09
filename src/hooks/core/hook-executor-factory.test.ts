@@ -46,7 +46,13 @@ describe("HookExecutor Factory", () => {
     it("uses default config when no config file exists", async () => {
       const executor = await createHookExecutor();
 
-      expect(executor).toBeDefined();
+      expect((executor as unknown as HookExecutorInternal).config).toEqual(
+        expect.objectContaining({
+          timeout: 30000,
+          logErrors: true,
+          nonBlocking: true,
+        }),
+      );
     });
 
     it("applies overrides to config", async () => {

@@ -18,7 +18,10 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { FakeGitAdapter } from "@kodebase/test-utils/fakes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MergeMetadataBuilder } from "../../../../../test/builders/merge-metadata-builder.js";
+import { OrchestrationResultBuilder } from "../../../../../test/builders/orchestration-result-builder.js";
 import { PostMergeOrchestrator } from "../../src/hooks/orchestration/post-merge-orchestrator.js";
 import type { OrchestrationResult } from "../../src/hooks/orchestration/post-merge-orchestrator-types.js";
 import { StrategyExecutor } from "../../src/hooks/orchestration/strategy-executor.js";
@@ -110,67 +113,67 @@ describe("Post-Merge Workflow Integration Tests", () => {
       expect(result.strategy).toBe("manual");
     });
 
-    it("should handle orchestrator returning results structure", async () => {
+    it("should calculate cascade totals from emitted events", async () => {
       const orchestrator = new PostMergeOrchestrator({ gitRoot });
+      const mergeMetadata = MergeMetadataBuilder.prMerge()
+        .withArtifacts("TEST")
+        .withPRNumber(124)
+        .withCommitSha("def456")
+        .build();
+
       const result = await orchestrator.execute({
-        mergeMetadata: {
-          artifactIds: ["TEST"],
-          prNumber: 124,
-          prTitle: "Test",
-          prBody: null,
-          sourceBranch: "test",
-          targetBranch: "main",
-          commitSha: "def456",
-          isPRMerge: true,
-        },
+        mergeMetadata,
       });
 
-      // Verify orchestration result structure
-      expect(result).toHaveProperty("mergeMetadata");
-      expect(result).toHaveProperty("completionCascade");
-      expect(result).toHaveProperty("readinessCascade");
-      expect(result).toHaveProperty("summary");
-      expect(result).toHaveProperty("totalArtifactsUpdated");
-      expect(result).toHaveProperty("totalEventsAdded");
+      const uniqueArtifacts = new Set([
+        ...result.completionCascade.events.map((event) => event.artifactId),
+        ...result.readinessCascade.events.map((event) => event.artifactId),
+      ]);
+      const expectedEvents =
+        result.completionCascade.events.length +
+        result.readinessCascade.events.length;
+
+      expect(result.mergeMetadata).toEqual(mergeMetadata);
+      expect(result.totalArtifactsUpdated).toBe(uniqueArtifacts.size);
+      expect(result.totalEventsAdded).toBe(expectedEvents);
+      expect(result.summary).toContain(
+        `Total: ${result.totalArtifactsUpdated} artifact(s) updated`,
+      );
     });
   });
 
   describe("E2E: Strategy execution flow", () => {
-    it("should execute direct_commit strategy with no changes", async () => {
-      const executor = new StrategyExecutor({ gitRoot });
+    it("short-circuits direct_commit when cascade has no updates", async () => {
+      const fakeAdapter = new FakeGitAdapter();
+      const executor = new StrategyExecutor(
+        { gitRoot },
+        undefined,
+        fakeAdapter,
+      );
 
-      // Create mock cascade results with no changes
-      const cascadeResults: OrchestrationResult = {
-        mergeMetadata: {
-          artifactIds: [],
-          prNumber: 125,
-          prTitle: "Test",
-          prBody: null,
-          sourceBranch: "test",
-          targetBranch: "main",
-          commitSha: "ghi789",
-          isPRMerge: true,
-        },
-        completionCascade: {
-          updatedArtifacts: [],
-          events: [],
-        },
-        readinessCascade: {
-          updatedArtifacts: [],
-          events: [],
-        },
-        summary: "No updates",
-        totalArtifactsUpdated: 0,
-        totalEventsAdded: 0,
-      };
+      const cascadeResults = new OrchestrationResultBuilder()
+        .withMergeMetadata(
+          MergeMetadataBuilder.prMerge()
+            .withArtifacts()
+            .withPRNumber(125)
+            .withSourceBranch("test")
+            .withCommitSha("ghi789"),
+        )
+        .withSummary("No updates")
+        .withTotals({ artifacts: 0, events: 0 })
+        .build();
 
       const result = await executor.execute({
         strategy: "direct_commit",
         cascadeResults,
       });
 
-      expect(result.success).toBe(true);
-      expect(result.message).toBe("No cascade changes to apply");
+      expect(result).toMatchObject({
+        success: true,
+        strategy: "direct_commit",
+        message: "No cascade changes to apply",
+      });
+      expect(fakeAdapter.getState().prs.size).toBe(0);
     });
   });
 
@@ -222,45 +225,42 @@ describe("Post-Merge Workflow Integration Tests", () => {
         },
       });
 
-      // Should complete without error
       expect(result.totalArtifactsUpdated).toBe(0);
       expect(result.totalEventsAdded).toBe(0);
-      expect(result.summary).toBeTruthy();
+      expect(result.completionCascade.events).toHaveLength(0);
+      expect(result.readinessCascade.events).toHaveLength(0);
+      expect(result.summary).toContain("Total: 0 artifact(s) updated");
     });
 
     it("should handle strategy executor with empty merge metadata", async () => {
-      const executor = new StrategyExecutor({ gitRoot });
+      const fakeAdapter = new FakeGitAdapter();
+      const executor = new StrategyExecutor(
+        { gitRoot },
+        undefined,
+        fakeAdapter,
+      );
 
-      const cascadeResults: OrchestrationResult = {
-        mergeMetadata: {
-          artifactIds: [],
-          prNumber: null,
-          prTitle: null,
-          prBody: null,
-          sourceBranch: null,
-          targetBranch: "main",
-          commitSha: "test",
-          isPRMerge: false,
-        },
-        completionCascade: {
-          updatedArtifacts: [],
-          events: [],
-        },
-        readinessCascade: {
-          updatedArtifacts: [],
-          events: [],
-        },
-        summary: "No updates",
-        totalArtifactsUpdated: 0,
-        totalEventsAdded: 0,
-      };
+      const cascadeResults = new OrchestrationResultBuilder()
+        .withMergeMetadata(
+          MergeMetadataBuilder.directMerge()
+            .withArtifacts()
+            .withCommitSha("test"),
+        )
+        .withSummary("No updates")
+        .withTotals({ artifacts: 0, events: 0 })
+        .build();
 
       const result = await executor.execute({
         strategy: "manual",
         cascadeResults,
       });
 
-      expect(result.success).toBe(true);
+      expect(result).toMatchObject({
+        success: true,
+        strategy: "manual",
+        message: "No cascade changes to apply",
+      });
+      expect(fakeAdapter.getState().prs.size).toBe(0);
     });
   });
 
@@ -285,10 +285,7 @@ describe("Post-Merge Workflow Integration Tests", () => {
       // Second call with same metadata
       const result2 = await orchestrator.execute({ mergeMetadata });
 
-      // Structure should be consistent
-      expect(result1).toHaveProperty("totalArtifactsUpdated");
-      expect(result2).toHaveProperty("totalArtifactsUpdated");
-      expect(result1.mergeMetadata).toEqual(result2.mergeMetadata);
+      expect(result2).toEqual(result1);
     });
   });
 

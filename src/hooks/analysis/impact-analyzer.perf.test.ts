@@ -121,7 +121,6 @@ describe("ImpactAnalyzer - Performance Tests", () => {
     const duration = endTime - startTime;
 
     // Verify analysis completed
-    expect(report).toBeDefined();
     expect(report.artifactId).toBe("A.5");
 
     // Verify performance requirement: <1s

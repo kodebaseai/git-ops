@@ -204,9 +204,12 @@ describe("ImpactAnalyzer - analyzeDeletion()", () => {
       const report = await analyzer.analyzeDeletion("A.1.1");
 
       const a12 = report.orphanedDependents.find((d) => d.id === "A.1.2");
-      expect(a12).toBeDefined();
-      expect(a12?.fullyOrphaned).toBe(false);
-      expect(a12?.remainingDependencies).toBe(1);
+      expect(a12).toEqual(
+        expect.objectContaining({
+          fullyOrphaned: false,
+          remainingDependencies: 1,
+        }),
+      );
       expect(a12?.message).toContain("1 remaining dependency");
     });
 

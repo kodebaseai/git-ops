@@ -379,8 +379,7 @@ describe("ImpactAnalyzer", () => {
       expect(report.hasImpact).toBe(true);
 
       const selfImpact = report.impactedArtifacts.find((a) => a.id === "A.1.2");
-      expect(selfImpact).toBeDefined();
-      expect(selfImpact?.impactType).toBe("breaks_dependency");
+      expect(selfImpact).toMatchObject({ impactType: "breaks_dependency" });
     });
 
     it("should identify artifacts sharing dependencies", async () => {
@@ -520,7 +519,6 @@ describe("ImpactAnalyzer", () => {
       // Should handle circular deps without infinite loop
       const report = await analyzer.analyze("C.1.1", "delete");
 
-      expect(report).toBeDefined();
       expect(report.impactedArtifacts.length).toBeGreaterThan(0);
     });
 
@@ -531,7 +529,7 @@ describe("ImpactAnalyzer", () => {
       const report = await analyzer.analyze("A.1.1", "delete");
       const after = new Date().toISOString();
 
-      expect(report.analyzedAt).toBeDefined();
+      expect(typeof report.analyzedAt).toBe("string");
       expect(report.analyzedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
       expect(report.analyzedAt >= before).toBe(true);
       expect(report.analyzedAt <= after).toBe(true);
@@ -582,7 +580,7 @@ describe("ImpactAnalyzer", () => {
 
       // Second analysis should still work
       const report = await analyzer.analyze("A.1.2", "delete");
-      expect(report).toBeDefined();
+      expect(Array.isArray(report.impactedArtifacts)).toBe(true);
     });
   });
 
@@ -684,7 +682,8 @@ describe("ImpactAnalyzer", () => {
 
       // Should handle missing dependency gracefully
       const report = await analyzer.analyze("X.1.1", "cancel");
-      expect(report).toBeDefined();
+      expect(report.artifactId).toBe("X.1.1");
+      expect(Array.isArray(report.impactedArtifacts)).toBe(true);
     });
 
     it("should handle remove_dependency with missing dependency", async () => {
@@ -735,7 +734,6 @@ describe("ImpactAnalyzer", () => {
 
       // Should handle missing dependency gracefully
       const report = await analyzer.analyze("Y.1.1", "remove_dependency");
-      expect(report).toBeDefined();
       expect(report.hasImpact).toBe(true);
       expect(report.impactedArtifacts.length).toBeGreaterThanOrEqual(1); // At least itself
     });

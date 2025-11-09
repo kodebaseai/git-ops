@@ -90,9 +90,12 @@ describe("IdempotencyTracker", () => {
 
       expect(result.shouldExecute).toBe(false);
       expect(result.reason).toBe("Hook already executed successfully");
-      expect(result.lastExecution).toBeDefined();
-      expect(result.lastExecution?.status).toBe("success");
-      expect(result.lastExecution?.timestamp).toBe("2025-11-05T10:00:00Z");
+      expect(result.lastExecution).toEqual({
+        hook: "post-merge",
+        status: "success",
+        duration: 1000,
+        timestamp: "2025-11-05T10:00:00Z",
+      });
     });
 
     it("returns false when hook failed recently (within retry timeout)", () => {
@@ -112,8 +115,13 @@ describe("IdempotencyTracker", () => {
       const result = tracker.shouldExecuteHook(events, "post-merge", now);
 
       expect(result.shouldExecute).toBe(false);
-      expect(result.reason).toContain("retry timeout not reached");
-      expect(result.lastExecution?.status).toBe("failed");
+      expect(result.reason).toBe(
+        "Hook failed recently (180s ago), retry timeout not reached",
+      );
+      expect(result.lastExecution).toMatchObject({
+        status: "failed",
+        error: "Connection timeout",
+      });
     });
 
     it("returns true when hook failed and retry timeout has passed", () => {
@@ -245,7 +253,9 @@ describe("IdempotencyTracker", () => {
       expect(event.event).toBe(CHookEvent.HOOK_EXECUTED);
       expect(event.actor).toBe("agent.hooks");
       expect(event.trigger).toBe(CHookTrigger.HOOK_COMPLETED);
-      expect(event.timestamp).toBeDefined();
+      const parsedTimestamp = Date.parse(event.timestamp);
+      expect(Number.isNaN(parsedTimestamp)).toBe(false);
+      expect(new Date(parsedTimestamp).toISOString()).toBe(event.timestamp);
 
       const metadata = event.metadata as unknown as HookExecutionMetadata;
       expect(metadata.hook).toBe("post-merge");

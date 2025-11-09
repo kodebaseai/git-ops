@@ -88,7 +88,9 @@ content:
       const uncommittedWarning = result.warnings.find(
         (w) => w.type === "UNCOMMITTED_CHANGES",
       );
-      expect(uncommittedWarning).toBeDefined();
+      expect(uncommittedWarning).toEqual(
+        expect.objectContaining({ type: "UNCOMMITTED_CHANGES" }),
+      );
       expect(uncommittedWarning?.message).toContain("uncommitted");
     });
 
@@ -123,10 +125,14 @@ content:
       const draftWarning = result.warnings.find(
         (w) => w.type === "DRAFT_ARTIFACT",
       );
-      expect(draftWarning).toBeDefined();
+      expect(draftWarning).toEqual(
+        expect.objectContaining({
+          type: "DRAFT_ARTIFACT",
+          artifactId: "A.1.1",
+        }),
+      );
       expect(draftWarning?.message).toContain("A.1.1");
       expect(draftWarning?.message).toContain("draft");
-      expect(draftWarning?.artifactId).toBe("A.1.1");
     });
 
     it("should warn about blocked artifacts", async () => {
@@ -164,10 +170,14 @@ content:
       const blockedWarning = result.warnings.find(
         (w) => w.type === "BLOCKED_ARTIFACT",
       );
-      expect(blockedWarning).toBeDefined();
+      expect(blockedWarning).toEqual(
+        expect.objectContaining({
+          type: "BLOCKED_ARTIFACT",
+          artifactId: "B.2.3",
+        }),
+      );
       expect(blockedWarning?.message).toContain("B.2.3");
       expect(blockedWarning?.message).toContain("blocked");
-      expect(blockedWarning?.artifactId).toBe("B.2.3");
     });
 
     it("should not warn about in_progress artifacts", async () => {
@@ -353,15 +363,23 @@ content:
       const result = await validatePrePush("G.1.1");
 
       // Should not crash, should just not issue state warnings
-      expect(result).toBeDefined();
+      expect(result).toEqual(
+        expect.objectContaining({
+          hasWarnings: false,
+        }),
+      );
     });
 
     it("should handle non-existent artifact gracefully", async () => {
       const result = await validatePrePush("Z.99.99");
 
       // Should not crash even if artifact doesn't exist
-      expect(result).toBeDefined();
-      expect(result.hasWarnings).toBe(false);
+      expect(result).toEqual(
+        expect.objectContaining({
+          hasWarnings: false,
+          warnings: [],
+        }),
+      );
     });
 
     it("should show limited file list for many uncommitted files", async () => {
@@ -402,10 +420,13 @@ content:
       const uncommittedWarning = result.warnings.find(
         (w) => w.type === "UNCOMMITTED_CHANGES",
       );
-      expect(uncommittedWarning).toBeDefined();
+      expect(uncommittedWarning).toEqual(
+        expect.objectContaining({ type: "UNCOMMITTED_CHANGES" }),
+      );
       expect(uncommittedWarning?.message).toMatch(/\d+ uncommitted/);
-      // Git may show them as one untracked directory, so we check for the warning exists
-      expect(uncommittedWarning?.details).toBeDefined();
+      // Details should explain which files are dirty to guide the developer
+      expect(typeof uncommittedWarning?.details).toBe("string");
+      expect(uncommittedWarning?.details).toContain(".kodebase/artifacts");
     });
   });
 });

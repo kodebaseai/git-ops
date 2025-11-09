@@ -5,9 +5,29 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { HookLogger } from "./hook-logger.js";
 import { CLogLevel } from "./logger-types.js";
+
+const createFakeConsole = () => {
+  const logs: string[] = [];
+  const warns: string[] = [];
+  const errors: string[] = [];
+  return {
+    log: (line: string) => {
+      logs.push(line);
+    },
+    warn: (line: string) => {
+      warns.push(line);
+    },
+    error: (line: string) => {
+      errors.push(line);
+    },
+    logs,
+    warns,
+    errors,
+  };
+};
 
 describe("HookLogger", () => {
   let tempDir: string;
@@ -17,9 +37,6 @@ describe("HookLogger", () => {
     // Create temporary directory for test logs
     tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "logger-test-"));
     logFile = path.join(tempDir, "hooks.log");
-
-    // Clear console spies
-    vi.restoreAllMocks();
   });
 
   afterEach(async () => {
@@ -45,145 +62,129 @@ describe("HookLogger", () => {
       const originalEnv = process.env.KODEBASE_LOG_LEVEL;
       delete process.env.KODEBASE_LOG_LEVEL;
 
-      const consoleLogSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
-      const logger = new HookLogger({ fileOutput: false });
+      const fakeConsole = createFakeConsole();
+      const logger = new HookLogger({
+        fileOutput: false,
+        consoleWriter: fakeConsole,
+      });
 
       // Debug should be filtered at info level
       logger.debug("test-hook", "A.1.2");
-      expect(consoleLogSpy).not.toHaveBeenCalled();
+      expect(fakeConsole.logs).toHaveLength(0);
 
       // Info should log
       logger.logStart("test-hook", "A.1.2");
-      expect(consoleLogSpy).toHaveBeenCalled();
+      expect(fakeConsole.logs).toHaveLength(1);
 
       if (originalEnv) {
         process.env.KODEBASE_LOG_LEVEL = originalEnv;
       }
-      consoleLogSpy.mockRestore();
     });
   });
 
   describe("Log levels", () => {
     it("logs debug messages when log level is debug", () => {
-      const consoleLogSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
+      const fakeConsole = createFakeConsole();
       const logger = new HookLogger({
         logLevel: CLogLevel.DEBUG,
         fileOutput: false,
+        consoleWriter: fakeConsole,
       });
 
       logger.debug("test-hook", "A.1.2", { foo: "bar" });
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"level":"debug"'),
-      );
-      consoleLogSpy.mockRestore();
+      expect(fakeConsole.logs).toHaveLength(1);
+      expect(JSON.parse(fakeConsole.logs[0])).toMatchObject({
+        level: "debug",
+        hookName: "test-hook",
+        artifactId: "A.1.2",
+        metadata: { foo: "bar" },
+      });
     });
 
     it("filters out debug messages when log level is info", () => {
-      const consoleLogSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
+      const fakeConsole = createFakeConsole();
       const logger = new HookLogger({
         logLevel: CLogLevel.INFO,
         fileOutput: false,
+        consoleWriter: fakeConsole,
       });
 
       logger.debug("test-hook", "A.1.2");
 
-      expect(consoleLogSpy).not.toHaveBeenCalled();
-      consoleLogSpy.mockRestore();
+      expect(fakeConsole.logs).toHaveLength(0);
     });
 
     it("logs info messages when log level is info", () => {
-      const consoleLogSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
+      const fakeConsole = createFakeConsole();
       const logger = new HookLogger({
         logLevel: CLogLevel.INFO,
         fileOutput: false,
+        consoleWriter: fakeConsole,
       });
 
       logger.logStart("test-hook", "A.1.2");
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"level":"info"'),
-      );
-      consoleLogSpy.mockRestore();
+      expect(fakeConsole.logs).toHaveLength(1);
+      expect(JSON.parse(fakeConsole.logs[0]).level).toBe("info");
     });
 
     it("logs warnings when log level is warn", () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, "warn")
-        .mockImplementation(() => {});
+      const fakeConsole = createFakeConsole();
       const logger = new HookLogger({
         logLevel: CLogLevel.WARN,
         fileOutput: false,
+        consoleWriter: fakeConsole,
       });
 
       logger.warn("test-hook", "A.1.2", "Test warning");
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"level":"warn"'),
-      );
-      consoleWarnSpy.mockRestore();
+      expect(fakeConsole.warns).toHaveLength(1);
+      expect(JSON.parse(fakeConsole.warns[0]).level).toBe("warn");
     });
 
     it("logs errors when log level is error", () => {
-      const consoleErrorSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
+      const fakeConsole = createFakeConsole();
       const logger = new HookLogger({
         logLevel: CLogLevel.ERROR,
         fileOutput: false,
+        consoleWriter: fakeConsole,
       });
 
       logger.logError("test-hook", "A.1.2", "Test error");
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"level":"error"'),
-      );
-      consoleErrorSpy.mockRestore();
+      expect(fakeConsole.errors).toHaveLength(1);
+      expect(JSON.parse(fakeConsole.errors[0]).level).toBe("error");
     });
 
     it("filters out lower priority logs", () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, "warn")
-        .mockImplementation(() => {});
-      const consoleLogSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
+      const fakeConsole = createFakeConsole();
       const logger = new HookLogger({
         logLevel: CLogLevel.WARN,
         fileOutput: false,
+        consoleWriter: fakeConsole,
       });
 
       logger.logStart("test-hook", "A.1.2"); // info - should be filtered
       logger.debug("test-hook", "A.1.2"); // debug - should be filtered
       logger.warn("test-hook", "A.1.2", "Warning"); // warn - should log
 
-      expect(consoleLogSpy).not.toHaveBeenCalled();
-      expect(consoleWarnSpy).toHaveBeenCalledTimes(1);
-
-      consoleWarnSpy.mockRestore();
-      consoleLogSpy.mockRestore();
+      expect(fakeConsole.logs).toHaveLength(0);
+      expect(fakeConsole.warns).toHaveLength(1);
     });
   });
 
   describe("Structured logging", () => {
     it("includes all required fields in log entry", () => {
-      const consoleLogSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
-      const logger = new HookLogger({ fileOutput: false });
+      const fakeConsole = createFakeConsole();
+      const logger = new HookLogger({
+        fileOutput: false,
+        consoleWriter: fakeConsole,
+      });
 
       logger.logSuccess("post-merge", "A.1.2", 1250);
 
-      const logCall = consoleLogSpy.mock.calls[0][0];
-      const logEntry = JSON.parse(logCall);
+      const logEntry = JSON.parse(fakeConsole.logs[0]);
 
       expect(logEntry).toMatchObject({
         level: "info",
@@ -192,22 +193,20 @@ describe("HookLogger", () => {
         duration: 1250,
         status: "success",
       });
-      expect(logEntry.timestamp).toBeDefined();
       expect(typeof logEntry.timestamp).toBe("string");
-
-      consoleLogSpy.mockRestore();
+      expect(Number.isNaN(Date.parse(logEntry.timestamp))).toBe(false);
     });
 
     it("includes error message in failed execution", () => {
-      const consoleErrorSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
-      const logger = new HookLogger({ fileOutput: false });
+      const fakeConsole = createFakeConsole();
+      const logger = new HookLogger({
+        fileOutput: false,
+        consoleWriter: fakeConsole,
+      });
 
       logger.logError("post-merge", "A.1.2", new Error("Test error"), 500);
 
-      const logCall = consoleErrorSpy.mock.calls[0][0];
-      const logEntry = JSON.parse(logCall);
+      const logEntry = JSON.parse(fakeConsole.errors[0]);
 
       expect(logEntry).toMatchObject({
         level: "error",
@@ -217,96 +216,86 @@ describe("HookLogger", () => {
         status: "failed",
         error: "Test error",
       });
-
-      consoleErrorSpy.mockRestore();
     });
 
     it("handles string errors", () => {
-      const consoleErrorSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
-      const logger = new HookLogger({ fileOutput: false });
+      const fakeConsole = createFakeConsole();
+      const logger = new HookLogger({
+        fileOutput: false,
+        consoleWriter: fakeConsole,
+      });
 
       logger.logError("post-merge", "A.1.2", "String error message");
 
-      const logCall = consoleErrorSpy.mock.calls[0][0];
-      const logEntry = JSON.parse(logCall);
+      const logEntry = JSON.parse(fakeConsole.errors[0]);
 
       expect(logEntry.error).toBe("String error message");
-
-      consoleErrorSpy.mockRestore();
     });
 
     it("includes metadata when provided", () => {
-      const consoleLogSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
-      const logger = new HookLogger({ fileOutput: false });
+      const fakeConsole = createFakeConsole();
+      const logger = new HookLogger({
+        fileOutput: false,
+        consoleWriter: fakeConsole,
+      });
 
       logger.logSuccess("post-merge", "A.1.2", 1250, { customField: "value" });
 
-      const logCall = consoleLogSpy.mock.calls[0][0];
-      const logEntry = JSON.parse(logCall);
+      const logEntry = JSON.parse(fakeConsole.logs[0]);
 
       expect(logEntry.metadata).toEqual({ customField: "value" });
-
-      consoleLogSpy.mockRestore();
     });
   });
 
   describe("Console output", () => {
     it("outputs to console when consoleOutput is true", () => {
-      const consoleLogSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
+      const fakeConsole = createFakeConsole();
       const logger = new HookLogger({
         consoleOutput: true,
         fileOutput: false,
+        consoleWriter: fakeConsole,
       });
 
       logger.logStart("test-hook", "A.1.2");
 
-      expect(consoleLogSpy).toHaveBeenCalledTimes(1);
-      consoleLogSpy.mockRestore();
+      expect(fakeConsole.logs).toHaveLength(1);
     });
 
     it("does not output to console when consoleOutput is false", () => {
-      const consoleLogSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
+      const fakeConsole = createFakeConsole();
       const logger = new HookLogger({
         consoleOutput: false,
         fileOutput: false,
+        consoleWriter: fakeConsole,
       });
 
       logger.logStart("test-hook", "A.1.2");
 
-      expect(consoleLogSpy).not.toHaveBeenCalled();
-      consoleLogSpy.mockRestore();
+      expect(fakeConsole.logs).toHaveLength(0);
     });
 
     it("uses console.error for error level", () => {
-      const consoleErrorSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
-      const logger = new HookLogger({ fileOutput: false });
+      const fakeConsole = createFakeConsole();
+      const logger = new HookLogger({
+        fileOutput: false,
+        consoleWriter: fakeConsole,
+      });
 
       logger.logError("test-hook", "A.1.2", "Error");
 
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-      consoleErrorSpy.mockRestore();
+      expect(fakeConsole.errors).toHaveLength(1);
     });
 
     it("uses console.warn for warn level", () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, "warn")
-        .mockImplementation(() => {});
-      const logger = new HookLogger({ fileOutput: false });
+      const fakeConsole = createFakeConsole();
+      const logger = new HookLogger({
+        fileOutput: false,
+        consoleWriter: fakeConsole,
+      });
 
       logger.warn("test-hook", "A.1.2", "Warning");
 
-      expect(consoleWarnSpy).toHaveBeenCalledTimes(1);
-      consoleWarnSpy.mockRestore();
+      expect(fakeConsole.warns).toHaveLength(1);
     });
   });
 
@@ -366,13 +355,12 @@ describe("HookLogger", () => {
     });
 
     it("handles file write errors gracefully", async () => {
-      const consoleErrorSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
+      const fakeConsole = createFakeConsole();
       const logger = new HookLogger({
         logFile: "/invalid/path/hooks.log",
         fileOutput: true,
         consoleOutput: false,
+        consoleWriter: fakeConsole,
       });
 
       // Should not throw
@@ -380,8 +368,7 @@ describe("HookLogger", () => {
         logger.logStart("test-hook", "A.1.2");
       }).not.toThrow();
 
-      expect(consoleErrorSpy).toHaveBeenCalled();
-      consoleErrorSpy.mockRestore();
+      expect(fakeConsole.errors.length).toBeGreaterThan(0);
     });
   });
 
@@ -448,15 +435,15 @@ describe("HookLogger", () => {
 
   describe("Hook lifecycle logging", () => {
     it("logs hook start", () => {
-      const consoleLogSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
-      const logger = new HookLogger({ fileOutput: false });
+      const fakeConsole = createFakeConsole();
+      const logger = new HookLogger({
+        fileOutput: false,
+        consoleWriter: fakeConsole,
+      });
 
       logger.logStart("post-merge", "A.1.2");
 
-      const logCall = consoleLogSpy.mock.calls[0][0];
-      const logEntry = JSON.parse(logCall);
+      const logEntry = JSON.parse(fakeConsole.logs[0]);
 
       expect(logEntry).toMatchObject({
         level: "info",
@@ -464,20 +451,18 @@ describe("HookLogger", () => {
         artifactId: "A.1.2",
         status: "started",
       });
-
-      consoleLogSpy.mockRestore();
     });
 
     it("logs hook success with duration", () => {
-      const consoleLogSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
-      const logger = new HookLogger({ fileOutput: false });
+      const fakeConsole = createFakeConsole();
+      const logger = new HookLogger({
+        fileOutput: false,
+        consoleWriter: fakeConsole,
+      });
 
       logger.logSuccess("post-merge", "A.1.2", 1250);
 
-      const logCall = consoleLogSpy.mock.calls[0][0];
-      const logEntry = JSON.parse(logCall);
+      const logEntry = JSON.parse(fakeConsole.logs[0]);
 
       expect(logEntry).toMatchObject({
         level: "info",
@@ -486,20 +471,18 @@ describe("HookLogger", () => {
         duration: 1250,
         status: "success",
       });
-
-      consoleLogSpy.mockRestore();
     });
 
     it("logs hook error with duration", () => {
-      const consoleErrorSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
-      const logger = new HookLogger({ fileOutput: false });
+      const fakeConsole = createFakeConsole();
+      const logger = new HookLogger({
+        fileOutput: false,
+        consoleWriter: fakeConsole,
+      });
 
       logger.logError("post-merge", "A.1.2", new Error("Hook failed"), 500);
 
-      const logCall = consoleErrorSpy.mock.calls[0][0];
-      const logEntry = JSON.parse(logCall);
+      const logEntry = JSON.parse(fakeConsole.errors[0]);
 
       expect(logEntry).toMatchObject({
         level: "error",
@@ -509,8 +492,6 @@ describe("HookLogger", () => {
         status: "failed",
         error: "Hook failed",
       });
-
-      consoleErrorSpy.mockRestore();
     });
   });
 });

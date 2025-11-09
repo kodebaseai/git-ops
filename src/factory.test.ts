@@ -4,7 +4,7 @@
 
 import type { KodebaseConfig } from "@kodebase/config";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { GitHubAdapter } from "./adapters/github.js";
+import { GitHubAdapter, type GitHubAdapterConfig } from "./adapters/github.js";
 import { GitLabAdapter } from "./adapters/gitlab.js";
 import {
   AdapterCreateError,
@@ -13,6 +13,21 @@ import {
   getPRCreationDefaults,
 } from "./factory.js";
 import { CGitPlatform } from "./types/constants.js";
+
+const getGitHubInternalConfig = (
+  adapter: GitHubAdapter,
+): GitHubAdapterConfig | undefined =>
+  (adapter as unknown as { config?: GitHubAdapterConfig }).config;
+
+describe("AdapterCreateError", () => {
+  it("should retain provided cause for debugging", () => {
+    const cause = new Error("boom");
+    const error = new AdapterCreateError("failed", cause);
+
+    expect(error.cause).toBe(cause);
+    expect(error.name).toBe("AdapterCreateError");
+  });
+});
 
 describe("createAdapter", () => {
   let originalEnv: NodeJS.ProcessEnv;
@@ -33,6 +48,17 @@ describe("createAdapter", () => {
   describe("GitHub adapter creation", () => {
     it("should create GitHub adapter with default config", () => {
       const config: KodebaseConfig = {};
+      const adapter = createAdapter(config);
+
+      expect(adapter).toBeInstanceOf(GitHubAdapter);
+      expect(adapter.platform).toBe(CGitPlatform.GITHUB);
+    });
+
+    it("should default to GitHub even when gitOps block lacks platform config", () => {
+      const config: KodebaseConfig = {
+        gitOps: {},
+      };
+
       const adapter = createAdapter(config);
 
       expect(adapter).toBeInstanceOf(GitHubAdapter);
@@ -66,6 +92,9 @@ describe("createAdapter", () => {
 
       const adapter = createAdapter(config);
       expect(adapter).toBeInstanceOf(GitHubAdapter);
+      expect(getGitHubInternalConfig(adapter as GitHubAdapter)?.token).toBe(
+        "ghp_test_token",
+      );
     });
 
     it("should use custom token env var when configured", () => {
@@ -85,6 +114,9 @@ describe("createAdapter", () => {
 
       const adapter = createAdapter(config);
       expect(adapter).toBeInstanceOf(GitHubAdapter);
+      expect(getGitHubInternalConfig(adapter as GitHubAdapter)?.token).toBe(
+        "ghp_custom_token",
+      );
     });
 
     it("should throw when token strategy used but token missing", () => {

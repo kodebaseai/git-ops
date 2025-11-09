@@ -11,6 +11,13 @@ import { QueryService } from "@kodebase/artifacts";
 import type { GitPlatformAdapter } from "../../types/adapter.js";
 import type { DraftPRConfig, DraftPRResult } from "./draft-pr-types.js";
 
+class ArtifactNotFoundError extends Error {
+  constructor(artifactId: string) {
+    super(`Artifact ${artifactId} not found`);
+    this.name = "ArtifactNotFoundError";
+  }
+}
+
 /**
  * Default configuration for draft PR service
  */
@@ -165,7 +172,7 @@ export class DraftPRService {
       const artifactWithId = allArtifacts.find((a) => a.id === artifactId);
 
       if (!artifactWithId) {
-        throw new Error(`Artifact ${artifactId} not found`);
+        throw new ArtifactNotFoundError(artifactId);
       }
 
       const artifact = artifactWithId.artifact;
@@ -228,7 +235,10 @@ export class DraftPRService {
       const body = bodyParts.join("\n");
 
       return { title, body };
-    } catch (_error) {
+    } catch (error) {
+      if (error instanceof ArtifactNotFoundError) {
+        throw error;
+      }
       // Fallback to basic title if artifact metadata loading fails
       return {
         title: `[${artifactId}] Work in progress`,

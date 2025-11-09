@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as fc from "fast-check";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BranchValidator } from "./branch-validator.js";
 
 describe("BranchValidator", () => {
@@ -161,6 +161,19 @@ describe("BranchValidator", () => {
       ]);
     });
 
+    it("always returns sorted unique artifact IDs", () => {
+      const validator = new BranchValidator({ baseDir: tempDir });
+
+      fc.assert(
+        fc.property(fc.string(), (branchName) => {
+          const ids = validator.extractArtifactIds(branchName);
+          const uniqueSorted = Array.from(new Set(ids)).sort();
+          expect(ids).toEqual(uniqueSorted);
+        }),
+        { numRuns: 200 },
+      );
+    });
+
     it("should return empty array for non-artifact branches", () => {
       const validator = new BranchValidator({ baseDir: tempDir });
 
@@ -313,10 +326,11 @@ describe("BranchValidator", () => {
       await createArtifact("C.1.2");
 
       const validator = new BranchValidator({ baseDir: tempDir });
-      const artifact = await validator.loadArtifactMetadata("C.1.2");
-
-      expect(artifact).toBeDefined();
-      expect(artifact.metadata.title).toBe("Test C.1.2");
+      await expect(
+        validator.loadArtifactMetadata("C.1.2"),
+      ).resolves.toMatchObject({
+        metadata: expect.objectContaining({ title: "Test C.1.2" }),
+      });
     });
 
     it("should throw error for non-existent artifact", async () => {
@@ -327,10 +341,23 @@ describe("BranchValidator", () => {
   });
 
   describe("Configuration", () => {
-    it("should use default baseDir if not provided", () => {
+    it("should use default baseDir if not provided", async () => {
+      await createArtifact("C");
+      await createArtifact("C.1");
+      await createArtifact("C.1.2");
+
+      const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(tempDir);
       const validator = new BranchValidator();
 
-      expect(validator).toBeDefined();
+      const result = await validator.validateBranch("C.1.2");
+
+      expect(result).toEqual({
+        validArtifactIds: ["C.1.2"],
+        invalidArtifactIds: [],
+        allValid: true,
+      });
+
+      cwdSpy.mockRestore();
     });
 
     it("should use custom baseDir from config", async () => {

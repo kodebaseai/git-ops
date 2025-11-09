@@ -52,4 +52,10 @@ export type HookLoggerConfig = {
   maxFileSize?: number;
   /** Maximum number of rotated log files to keep (default: 5) */
   maxFiles?: number;
+  /** Optional console writer implementation (defaults to process console) */
+  consoleWriter?: {
+    log: (line: string) => void;
+    warn: (line: string) => void;
+    error: (line: string) => void;
+  };
 };

@@ -153,8 +153,10 @@ describe("DraftPRService", () => {
 
       (mockAdapter.createDraftPR as Mock).mockResolvedValue(mockPR);
 
-      // Mock QueryService to return empty array (artifact not found)
-      mockFindArtifacts.mockResolvedValue([]);
+      // Mock QueryService to throw (e.g., file system error)
+      mockFindArtifacts.mockRejectedValue(
+        new Error("Failed to read artifacts"),
+      );
 
       const result = await service.createDraftPR("C.99.99", "C.99.99-test");
 
@@ -168,6 +170,17 @@ describe("DraftPRService", () => {
           body: expect.stringContaining("Automated draft PR for artifact"),
         }),
       );
+    });
+
+    it("rejects draft PR creation when artifact does not exist", async () => {
+      mockFindArtifacts.mockResolvedValue([]);
+
+      const result = await service.createDraftPR("Z.99.99", "Z.99.99-feature");
+
+      expect(result.created).toBe(false);
+      expect(result.reason).toMatch(/Artifact Z\.99\.99 not found/);
+      expect(result.error).toBeInstanceOf(Error);
+      expect(mockAdapter.createDraftPR).not.toHaveBeenCalled();
     });
 
     it("should handle initiative artifacts (vision + success_criteria)", async () => {

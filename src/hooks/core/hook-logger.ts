@@ -21,6 +21,11 @@ const DEFAULT_CONFIG: Required<HookLoggerConfig> = {
   fileOutput: true,
   maxFileSize: 10 * 1024 * 1024, // 10MB
   maxFiles: 5,
+  consoleWriter: {
+    log: (line: string) => console.log(line),
+    warn: (line: string) => console.warn(line),
+    error: (line: string) => console.error(line),
+  },
 };
 
 /**
@@ -53,12 +58,19 @@ const LOG_LEVEL_PRIORITY: Record<TLogLevel, number> = {
  */
 export class HookLogger {
   private readonly config: Required<HookLoggerConfig>;
+  private readonly consoleWriter: {
+    log: (line: string) => void;
+    warn: (line: string) => void;
+    error: (line: string) => void;
+  };
 
   constructor(config: HookLoggerConfig = {}) {
+    const { consoleWriter, ...rest } = config;
     this.config = {
       ...DEFAULT_CONFIG,
-      ...config,
+      ...rest,
     };
+    this.consoleWriter = consoleWriter ?? console;
 
     // Ensure log directory exists
     if (this.config.fileOutput) {
@@ -185,13 +197,13 @@ export class HookLogger {
 
     switch (entry.level) {
       case CLogLevel.ERROR:
-        console.error(logLine);
+        this.consoleWriter.error(logLine);
         break;
       case CLogLevel.WARN:
-        console.warn(logLine);
+        this.consoleWriter.warn(logLine);
         break;
       default:
-        console.log(logLine);
+        this.consoleWriter.log(logLine);
         break;
     }
   }
@@ -212,7 +224,7 @@ export class HookLogger {
       fs.appendFileSync(this.config.logFile, logLine, "utf-8");
     } catch (error) {
       // If file logging fails, output to stderr but don't throw
-      console.error(
+      this.consoleWriter.error(
         `Failed to write to log file: ${error instanceof Error ? error.message : String(error)}`,
       );
     }

@@ -445,7 +445,7 @@ describe("PostCheckoutDetector", () => {
       const detector = new PostCheckoutDetector();
 
       // Should not throw - uses process.cwd()
-      expect(detector).toBeDefined();
+      expect(detector).toBeInstanceOf(PostCheckoutDetector);
     });
 
     it("should use custom gitRoot from config", async () => {

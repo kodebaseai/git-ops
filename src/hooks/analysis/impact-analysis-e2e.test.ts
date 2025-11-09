@@ -509,10 +509,10 @@ describe("Impact Analysis E2E Integration Tests", () => {
       // Should be valid JSON
       const parsed = JSON.parse(output);
       expect(parsed.artifactId).toBe("A.1.2");
-      expect(parsed.dependentsUnblocked).toBeDefined();
-      expect(parsed.parentCompletionAffected).toBeDefined();
+      expect(Array.isArray(parsed.dependentsUnblocked)).toBe(true);
+      expect(Array.isArray(parsed.parentCompletionAffected)).toBe(true);
       expect(parsed.hasImpact).toBe(true);
-      expect(parsed.summary).toBeDefined();
+      expect(typeof parsed.summary).toBe("string");
     });
 
     it("should format deletion report as JSON", async () => {
@@ -525,9 +525,11 @@ describe("Impact Analysis E2E Integration Tests", () => {
       // Should be valid JSON
       const parsed = JSON.parse(output);
       expect(parsed.artifactId).toBe("A.1.1");
-      expect(parsed.orphanedDependents).toBeDefined();
-      expect(parsed.brokenParent).toBeDefined();
-      expect(parsed.affectedSiblings).toBeDefined();
+      expect(Array.isArray(parsed.orphanedDependents)).toBe(true);
+      expect(parsed.brokenParent).toEqual(
+        expect.objectContaining({ id: expect.any(String) }),
+      );
+      expect(Array.isArray(parsed.affectedSiblings)).toBe(true);
       expect(parsed.requiresForce).toBe(true);
       expect(parsed.hasImpact).toBe(true);
     });

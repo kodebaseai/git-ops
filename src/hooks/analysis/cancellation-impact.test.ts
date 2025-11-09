@@ -651,7 +651,7 @@ describe("ImpactAnalyzer - Cancellation Impact Analysis (C.8.2)", () => {
       const report = await analyzer.analyzeCancellation("A.1.2");
       const after = new Date().toISOString();
 
-      expect(report.analyzedAt).toBeDefined();
+      expect(typeof report.analyzedAt).toBe("string");
       expect(report.analyzedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
       expect(report.analyzedAt >= before).toBe(true);
       expect(report.analyzedAt <= after).toBe(true);

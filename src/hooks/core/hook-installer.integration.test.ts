@@ -207,7 +207,7 @@ describe("HookInstaller", () => {
       const result = await installer.installHooks(["post-merge"]);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/EACCES|permission denied/i);
 
       // Restore permissions for cleanup
       await fs.promises.chmod(hooksDir, 0o755);

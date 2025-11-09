@@ -55,33 +55,60 @@ describe("HookExecutor", () => {
   });
 
   describe("executeHook", () => {
-    it("executes hook successfully with default config", async () => {
+    it("returns complete success payload when execution finishes cleanly", async () => {
       const result = await executor.executeHook("post-merge", mockContext);
 
-      expect(result.success).toBe(true);
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          duration: expect.any(Number),
+          stdout: "",
+          stderr: "",
+        }),
+      );
       expect(result.duration).toBeGreaterThanOrEqual(0);
       expect(result.error).toBeUndefined();
     });
 
-    it("includes hook context in execution", async () => {
-      const result = await executor.executeHook("post-merge", mockContext);
+    it("invokes lifecycle hooks with the same context used for execution", async () => {
+      const beforeExecute = vi.fn();
+      const afterExecute = vi.fn();
+      const lifecycleExecutor = new HookExecutor({
+        lifecycle: { beforeExecute, afterExecute },
+      });
 
-      expect(result.success).toBe(true);
-      // Context is available during execution
+      await lifecycleExecutor.executeHook("post-merge", mockContext);
+
+      expect(beforeExecute).toHaveBeenCalledWith("post-merge", mockContext);
+      expect(afterExecute).toHaveBeenCalledWith("post-merge", mockContext);
     });
 
-    it("returns result with stdout and stderr", async () => {
+    it("bubbles stdout and stderr from the underlying hook execution", async () => {
+      const hookOutput = { stdout: "hook output", stderr: "warnings" };
+      const hookSpy = vi
+        .spyOn(
+          executor as unknown as HookExecutorInternal,
+          "executeWithTimeout",
+        )
+        .mockResolvedValueOnce(hookOutput);
+
       const result = await executor.executeHook("post-merge", mockContext);
 
-      expect(result.stdout).toBeDefined();
-      expect(result.stderr).toBeDefined();
+      expect(result.stdout).toBe("hook output");
+      expect(result.stderr).toBe("warnings");
+      hookSpy.mockRestore();
     });
 
-    it("measures execution duration", async () => {
+    it("reports deterministic duration based on performance.now()", async () => {
+      const nowSpy = vi
+        .spyOn(performance, "now")
+        .mockReturnValueOnce(1000)
+        .mockReturnValueOnce(1600);
+
       const result = await executor.executeHook("post-merge", mockContext);
 
-      expect(result.duration).toBeGreaterThanOrEqual(0);
-      expect(typeof result.duration).toBe("number");
+      expect(result.duration).toBe(600);
+      nowSpy.mockRestore();
     });
   });
 
@@ -104,16 +131,24 @@ describe("HookExecutor", () => {
       expect(result.duration).toBeGreaterThanOrEqual(0);
     });
 
-    it("does not throw errors in non-blocking mode", async () => {
+    it("captures failures as results in non-blocking mode", async () => {
       const failingExecutor = new HookExecutor({ nonBlocking: true });
       vi.spyOn(
         failingExecutor as unknown as HookExecutorInternal,
         "executeWithTimeout",
       ).mockRejectedValue(new Error("Hook failed"));
 
-      await expect(
-        failingExecutor.executeHook("failing-hook", mockContext),
-      ).resolves.toBeDefined();
+      const result = await failingExecutor.executeHook(
+        "failing-hook",
+        mockContext,
+      );
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: false,
+          error: "Hook failed",
+        }),
+      );
     });
 
     it("throws errors in blocking mode", async () => {

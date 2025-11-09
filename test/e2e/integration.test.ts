@@ -450,7 +450,7 @@ describe("Integration Tests", () => {
       const result = await adapter.validateAuth();
 
       expect(result.authenticated).toBe(false);
-      expect(result.error).toBeDefined();
+      expect(result.error).toBe("Token is invalid or expired");
     });
 
     it("should handle API failures with fetch errors", async () => {

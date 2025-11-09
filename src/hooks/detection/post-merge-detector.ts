@@ -2,6 +2,7 @@
  * Post-merge hook trigger detection and metadata extraction
  */
 
+import type { ExecOptions } from "node:child_process";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import { extractArtifactIds } from "../../utils/artifact-utils.js";
@@ -15,6 +16,11 @@ import type {
 // relies on exceptions being thrown on git command failures for error handling.
 // utils/exec.ts returns exitCode explicitly which would require refactoring.
 const execAsync = promisify(exec);
+
+type ExecRunner = (
+  command: string,
+  options?: ExecOptions,
+) => Promise<{ stdout: string; stderr: string }>;
 
 /**
  * Default configuration for post-merge detection
@@ -37,7 +43,10 @@ const DEFAULT_CONFIG: Required<PostMergeConfig> = {
 export class PostMergeDetector {
   private config: Required<PostMergeConfig>;
 
-  constructor(config: PostMergeConfig = {}) {
+  constructor(
+    config: PostMergeConfig = {},
+    private readonly execRunner: ExecRunner = execAsync,
+  ) {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
@@ -140,9 +149,12 @@ export class PostMergeDetector {
    * Get current git branch name
    */
   private async getCurrentBranch(): Promise<string> {
-    const { stdout } = await execAsync("git rev-parse --abbrev-ref HEAD", {
-      cwd: this.config.gitRoot,
-    });
+    const { stdout } = await this.execRunner(
+      "git rev-parse --abbrev-ref HEAD",
+      {
+        cwd: this.config.gitRoot,
+      },
+    );
     return stdout.trim();
   }
 
@@ -150,7 +162,7 @@ export class PostMergeDetector {
    * Get commit SHA
    */
   private async getCommitSha(ref: string): Promise<string> {
-    const { stdout } = await execAsync(`git rev-parse ${ref}`, {
+    const { stdout } = await this.execRunner(`git rev-parse ${ref}`, {
       cwd: this.config.gitRoot,
     });
     return stdout.trim();
@@ -163,7 +175,7 @@ export class PostMergeDetector {
   private async getSourceBranch(): Promise<string | null> {
     try {
       // Try to get from reflog first
-      const { stdout: reflog } = await execAsync(
+      const { stdout: reflog } = await this.execRunner(
         'git reflog -1 --grep-reflog="merge" --format=%gs',
         {
           cwd: this.config.gitRoot,
@@ -177,7 +189,7 @@ export class PostMergeDetector {
       }
 
       // Fallback: try to extract from commit message
-      const { stdout: message } = await execAsync(
+      const { stdout: message } = await this.execRunner(
         "git log -1 --pretty=%B HEAD",
         {
           cwd: this.config.gitRoot,
@@ -201,7 +213,7 @@ export class PostMergeDetector {
    */
   private async getPRNumber(): Promise<number | null> {
     try {
-      const { stdout } = await execAsync("git log -1 --pretty=%s HEAD", {
+      const { stdout } = await this.execRunner("git log -1 --pretty=%s HEAD", {
         cwd: this.config.gitRoot,
       });
 
@@ -220,7 +232,7 @@ export class PostMergeDetector {
   ): Promise<{ title: string | null; body: string | null }> {
     try {
       // Try gh CLI first (simpler, handles auth automatically)
-      const { stdout } = await execAsync(
+      const { stdout } = await this.execRunner(
         `gh pr view ${prNumber} --json title,body`,
         {
           cwd: this.config.gitRoot,
@@ -245,6 +257,7 @@ export class PostMergeDetector {
  */
 export function createPostMergeDetector(
   config?: PostMergeConfig,
+  execRunner?: ExecRunner,
 ): PostMergeDetector {
-  return new PostMergeDetector(config);
+  return new PostMergeDetector(config, execRunner);
 }
