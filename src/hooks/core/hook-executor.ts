@@ -14,6 +14,14 @@ import type {
 const DEFAULT_TIMEOUT = 30000;
 
 /**
+ * Function type for executing hooks
+ */
+export type HookExecutionFunction = (
+  hookName: string,
+  context: HookContext,
+) => Promise<{ stdout?: string; stderr?: string }>;
+
+/**
  * Executes git hooks with non-blocking execution, timeout support, and lifecycle callbacks.
  *
  * @example
@@ -40,8 +48,12 @@ export class HookExecutor {
     lifecycle?: HookExecutorConfig["lifecycle"];
     logger?: HookExecutorConfig["logger"];
   };
+  private readonly executionFn: HookExecutionFunction;
 
-  constructor(config: HookExecutorConfig = {}) {
+  constructor(
+    config: HookExecutorConfig = {},
+    executionFn?: HookExecutionFunction,
+  ) {
     this.config = {
       timeout: config.timeout ?? DEFAULT_TIMEOUT,
       nonBlocking: config.nonBlocking ?? true,
@@ -53,6 +65,7 @@ export class HookExecutor {
         onError: config.lifecycle?.onError,
       },
     };
+    this.executionFn = executionFn ?? this.defaultExecuteWithTimeout.bind(this);
   }
 
   /**
@@ -83,7 +96,7 @@ export class HookExecutor {
       }
 
       // Execute the hook with timeout
-      const result = await this.executeWithTimeout(hookName, context);
+      const result = await this.executionFn(hookName, context);
 
       // Call afterExecute lifecycle hook if provided
       if (this.config.lifecycle?.afterExecute) {
@@ -206,13 +219,13 @@ export class HookExecutor {
   }
 
   /**
-   * Execute a hook implementation with timeout support.
+   * Default hook execution implementation with timeout support.
    *
    * @param hookName - Name of the hook
-   * @param context - Hook execution context
+   * @param _context - Hook execution context
    * @returns Promise resolving to execution output
    */
-  private async executeWithTimeout(
+  private async defaultExecuteWithTimeout(
     hookName: string,
     _context: HookContext,
   ): Promise<{ stdout?: string; stderr?: string }> {

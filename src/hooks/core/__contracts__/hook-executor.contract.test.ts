@@ -5,16 +5,14 @@ import {
 } from "@kodebase/test-utils/contracts";
 import { describe, vi } from "vitest";
 import type { HookContext } from "../../../utils/types.js";
-import { HookExecutor } from "../hook-executor.js";
+import { type HookExecutionFunction, HookExecutor } from "../hook-executor.js";
 
-type ExecutorInternal = HookExecutorContractSubject & {
-  executeWithTimeout: (
-    hookName: string,
-    context: HookContext,
-  ) => Promise<{
-    stdout?: string;
-    stderr?: string;
-  }>;
+type TestableExecutor = HookExecutorContractSubject & {
+  _setExecutionFn: (fn: HookExecutionFunction) => void;
+};
+
+type HookExecutorInternal = HookExecutor & {
+  executionFn: HookExecutionFunction;
 };
 
 describe("HookExecutor Contract", () => {
@@ -24,9 +22,15 @@ describe("HookExecutor Contract", () => {
     timestamp: "2025-11-08T11:00:00Z",
   };
 
-  contractHookExecutor<ExecutorInternal, HookExecutorContractConfig>(
+  contractHookExecutor<TestableExecutor, HookExecutorContractConfig>(
     "HookExecutor",
-    (config) => new HookExecutor(config),
+    (config) => {
+      const executor = new HookExecutor(config) as TestableExecutor;
+      executor._setExecutionFn = (fn: HookExecutionFunction) => {
+        (executor as HookExecutorInternal).executionFn = fn;
+      };
+      return executor;
+    },
     {
       contextFactory: () => context,
       configs: {
@@ -35,7 +39,7 @@ describe("HookExecutor Contract", () => {
         blocking: { nonBlocking: false },
       },
       simulateFailure: (executor, error) => {
-        vi.spyOn(executor, "executeWithTimeout").mockRejectedValueOnce(error);
+        executor._setExecutionFn(vi.fn().mockRejectedValue(error));
       },
     },
   );

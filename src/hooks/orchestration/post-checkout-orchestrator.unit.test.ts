@@ -4,6 +4,11 @@ import type { PostCheckoutOrchestratorResult } from "./post-checkout-orchestrato
 
 const getCurrentStateMock = vi.hoisted(() => vi.fn());
 const getArtifactSlugMock = vi.hoisted(() => vi.fn());
+const execMock = vi.hoisted(() => vi.fn());
+
+vi.mock("node:child_process", () => ({
+  exec: execMock,
+}));
 
 vi.mock("../../utils/artifact-utils.js", async () => {
   const actual = await vi.importActual<
@@ -33,6 +38,30 @@ describe("PostCheckoutOrchestrator (unit)", () => {
     draftPRService.createDraftPR.mockReset();
     getCurrentStateMock.mockReset();
     getArtifactSlugMock.mockReset();
+    execMock.mockReset();
+
+    // Mock git config calls for getGitActor
+    execMock.mockImplementation(
+      (
+        cmd: string,
+        _opts: Record<string, unknown>,
+        callback: (
+          error: Error | null,
+          stdout: { stdout: string; stderr: string },
+        ) => void,
+      ) => {
+        if (cmd === "git config user.name") {
+          callback(null, { stdout: "Tester", stderr: "" });
+        } else if (cmd === "git config user.email") {
+          callback(null, { stdout: "tester@example.com", stderr: "" });
+        } else {
+          callback(new Error(`Unexpected command: ${cmd}`), {
+            stdout: "",
+            stderr: "",
+          });
+        }
+      },
+    );
   });
 
   const makeDetection = () => ({
@@ -60,7 +89,6 @@ describe("PostCheckoutOrchestrator (unit)", () => {
       cascadeService: {
         executeProgressCascade: ReturnType<typeof vi.fn>;
       };
-      getGitActor: () => Promise<string>;
     };
 
     orchestrator.detector = {
@@ -73,10 +101,6 @@ describe("PostCheckoutOrchestrator (unit)", () => {
         events: [{ artifactId: "P.1", event: "in_progress" }],
       }),
     };
-
-    vi.spyOn(orchestrator, "getGitActor" as never).mockResolvedValue(
-      "Tester (tester@example.com)",
-    );
 
     getArtifactSlugMock.mockResolvedValue("C/C.1.2/C.1.2");
     getCurrentStateMock.mockReturnValue("draft");
