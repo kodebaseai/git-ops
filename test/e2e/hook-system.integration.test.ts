@@ -8,12 +8,12 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { TEvent } from "@kodebase/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { HookExecutor } from "./hook-executor.js";
-import { HookInstaller } from "./hook-installer.js";
-import { HookLogger } from "./hook-logger.js";
-import { IdempotencyTracker } from "./idempotency-tracker.js";
-import { CLogLevel } from "./logger-types.js";
-import type { HookContext } from "./types.js";
+import { HookExecutor } from "../../src/hooks/core/hook-executor.js";
+import { HookInstaller } from "../../src/hooks/core/hook-installer.js";
+import { HookLogger } from "../../src/hooks/core/hook-logger.js";
+import { IdempotencyTracker } from "../../src/hooks/core/idempotency-tracker.js";
+import { CLogLevel } from "../../src/hooks/core/logger-types.js";
+import type { HookContext } from "../../src/hooks/core/types.js";
 
 describe("Hook System Integration Tests", () => {
   let tempDir: string;

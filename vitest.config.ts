@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["src/**/*.test.ts"],
+    exclude: ["test/e2e/**/*.test.ts", "**/node_modules/**"],
     coverage: {
       provider: "istanbul",
       reporter: [

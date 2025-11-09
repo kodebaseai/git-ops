@@ -19,7 +19,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { PostCheckoutOrchestrator } from "../orchestration/post-checkout-orchestrator.js";
+import { PostCheckoutOrchestrator } from "../../src/hooks/orchestration/post-checkout-orchestrator.js";
 
 describe("Post-Checkout Workflow Integration Tests", () => {
   let tempDir: string;

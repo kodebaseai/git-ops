@@ -5,21 +5,21 @@
 
 import type { KodebaseConfig } from "@kodebase/config";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { GitHubAdapter } from "./adapters/github.js";
-import { GitLabAdapter } from "./adapters/gitlab.js";
+import { GitHubAdapter } from "../../src/adapters/github.js";
+import { GitLabAdapter } from "../../src/adapters/gitlab.js";
 import {
   createAdapter,
   getMergeDefaults,
   getPRCreationDefaults,
-} from "./factory.js";
-import { CGitPlatform, CReviewStatus } from "./types/constants.js";
+} from "../../src/factory.js";
+import { CGitPlatform, CReviewStatus } from "../../src/types/constants.js";
 
 // Mock execAsync for CLI integration
-vi.mock("./utils/exec.js", () => ({
+vi.mock("../../src/utils/exec.js", () => ({
   execAsync: vi.fn(),
 }));
 
-import { execAsync } from "./utils/exec.js";
+import { execAsync } from "../../src/utils/exec.js";
 
 describe("Integration Tests", () => {
   beforeEach(() => {

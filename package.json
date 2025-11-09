@@ -31,6 +31,8 @@
     "lint:types": "attw --pack . --profile esm-only",
     "format": "biome format .",
     "test": "vitest run",
+    "test:e2e": "vitest run --config vitest.config.e2e.ts",
+    "test:all": "pnpm test && pnpm test:e2e",
     "test:coverage": "vitest run --coverage",
     "test:mutation": "stryker run",
     "test:mutation:force": "stryker run --force",
