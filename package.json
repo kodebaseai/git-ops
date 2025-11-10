@@ -1,8 +1,17 @@
 {
   "name": "@kodebase/git-ops",
-  "version": "0.8.0",
+  "version": "1.0.0",
   "description": "Git platform abstraction for GitHub, GitLab, and Bitbucket operations",
   "license": "MIT",
+  "homepage": "https://github.com/kodebaseai/git-ops#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kodebaseai/git-ops.git",
+    "directory": "."
+  },
+  "bugs": {
+    "url": "https://github.com/kodebaseai/git-ops/issues"
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -57,7 +66,7 @@
     "fast-check": "4.3.0",
     "memfs": "^4.50.0",
     "publint": "^0.3.15",
-    "vitest": "^4.0.7",
+    "vitest": "latest",
     "zod": "^4.1.12"
   }
 }

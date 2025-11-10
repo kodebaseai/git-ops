@@ -1,5 +1,42 @@
 # @kodebase/git-ops
 
+## 1.0.0
+
+### Major Changes
+
+- [#220](https://github.com/kodebaseai/kodebase/pull/220) [`d647d2b`](https://github.com/kodebaseai/kodebase/commit/d647d2befcd36e994307f81867e4f6a4d23358b6) Thanks [@migcarva](https://github.com/migcarva)! - 🚀 Release git-ops v1.0 - Automated artifact lifecycle management through Git operations
+
+  Ship production-ready git-ops package enabling seamless integration between development workflows and artifact state transitions via intelligent hooks, cascade orchestration, and platform-native PR automation.
+
+  **Core Features:**
+
+  - **Git Platform Abstraction**: GitHub implementation with GitLab interface for future support
+  - **Intelligent Hook System**: 4 git hooks (post-checkout, post-merge, pre-commit, pre-push) with non-blocking execution, idempotency guarantees, and error resilience
+  - **Cascade Automation**: Automatic completion, progress, and readiness cascades triggered by git operations
+  - **Configuration Presets**: Solo developer, small team, and enterprise workflows with 3 post-merge strategies (cascade_pr, direct_commit, manual)
+  - **Impact Analysis**: Safety system preventing accidental destructive operations with detailed impact reports
+  - **Comprehensive Documentation**: 15,000+ lines across 23 files covering API reference, user guides, migration, configuration, and examples
+
+  This is a **breaking change** from v0.1.x. See migration guide for upgrade instructions.
+
+## 0.8.1
+
+### Patch Changes
+
+- [#218](https://github.com/kodebaseai/kodebase/pull/218) [`63215a7`](https://github.com/kodebaseai/kodebase/commit/63215a7acfbaa7f440ba3f0576220284faf85a57) Thanks [@migcarva](https://github.com/migcarva)! - Complete comprehensive documentation suite for git-ops v1.0
+
+  Add complete documentation suite covering all aspects of git-ops v1.0:
+
+  - **API Reference** (2,148 lines): Complete TypeScript API documentation for all git-ops exports including GitPlatformAdapter, Hook System, Cascade Operations, Impact Analysis, Orchestration, Detection, Validation, and Draft PR Service
+  - **User Guide** (1,106 lines): Getting started guide covering installation, setup wizard, daily workflow, cascade explanations, configuration options, troubleshooting, and advanced topics
+  - **Migration Guide** (1,840 lines): Comprehensive v0.1.x → v1.0 upgrade guide with 6 breaking changes documented, 42-checkbox migration checklist, 8-step process with time estimates, and complete rollback instructions
+  - **Configuration Reference** (~800 lines): Complete settings.yml reference with 3 workflow presets (Solo, Small Team, Enterprise), 9 configuration sections, 30+ settings documented, and 5 common scenario examples
+  - **Hook Behavior** (1,472 lines): Detailed documentation of all 4 git hooks with execution flow diagrams, trigger conditions, state transitions, idempotency guarantees, error handling, performance optimization, and 15+ troubleshooting scenarios
+  - **Examples** (~600 lines): Real-world workflow examples (solo/team/enterprise), impact analysis scenarios, and 7 custom configuration examples
+  - **Documentation Review**: Systematic review report validating technical accuracy and completeness across all 23 documentation files (~15,000+ lines total)
+
+  All documentation is production-ready and approved for v1.0 release.
+
 ## 0.8.0
 
 ### Minor Changes
