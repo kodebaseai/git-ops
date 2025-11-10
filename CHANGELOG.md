@@ -1,5 +1,90 @@
 # @kodebase/git-ops
 
+## 0.8.0
+
+### Minor Changes
+
+- [#210](https://github.com/kodebaseai/kodebase/pull/210) [`a6e763f`](https://github.com/kodebaseai/kodebase/commit/a6e763f568afda1539e02af0b89c763cc0db9ba3) Thanks [@migcarva](https://github.com/migcarva)! - **D.2: Git-Ops Test Quality (72/100 → 82/100)**
+
+  Comprehensive test quality improvement initiative bringing @kodebase/git-ops from C+ to B+ grade.
+
+  ## Key Achievements
+
+  ### Test Infrastructure ✅
+
+  - Reduced mock ratio from 45% to **14.9%** (-71% improvement)
+  - Unit test performance: **760ms** (well under 2s target)
+  - Zero focused/skipped tests (was 1 `.skip`)
+  - Comprehensive TESTING.md documentation (585 lines)
+
+  ### Test Patterns Implemented ✅
+
+  - **Test Builders**: 7 builders created (MergeMetadataBuilder, CascadeResultBuilder, etc.)
+  - **FakeGitAdapter**: Full in-memory git simulation replacing 40+ mocks
+  - **Contract Tests**: 3 interface contracts (GitPlatformAdapter, HookExecutor, DetectorService)
+  - **Property Tests**: 11 property tests with fast-check for invariant validation
+
+  ### Quality Improvements ✅
+
+  - Rewrote 10 weak tests with strong assertions
+  - Separated integration tests to dedicated directory
+  - Mutation testing baseline established: **64.09%** (from 0%)
+  - Test documentation with philosophy, patterns, and examples
+
+  ## Acceptance Criteria: 10/14 Met
+
+  ### ✅ Passed (10)
+
+  1. Mock ratio <15%: 14.9% ✅
+  2. Unit test speed <2s: 760ms ✅
+  3. Test builders created: 7 builders ✅
+  4. FakeGitAdapter replaces mocks ✅
+  5. Contract tests: 3 interfaces ✅
+  6. Property tests: 11 tests ✅
+  7. Integration tests separated ✅
+  8. Weak tests rewritten: 10/10 ✅
+  9. Zero focused/skipped tests ✅
+  10. Test documentation: TESTING.md ✅
+
+  ### ❌ Partial/Future Work (4)
+
+  1. Mutation score: 64% vs 85% target (requires refactoring, not just testing)
+  2. Core module scores: ~73% vs 90% target (architectural limits)
+  3. Fake timers: Documented but opt-in (global fake timers caused issues)
+  4. Overall score: 82/100 vs 95/100 target (13 point gap)
+
+  ## Strategic Decisions
+
+  **D.2.13 & D.2.14 Canceled**: After extensive analysis, reaching 85% mutation score requires strategic refactoring (Builder Pattern for github.ts, Options Normalization for validators) rather than additional testing. Work preserved in D.2.13 branch for future reference.
+
+  **Focus Shift to MVP/MLP**: Current 64% mutation score with 82/100 quality is production-ready. Further optimization deferred to focus on product development.
+
+  ## Delivered Artifacts
+
+  - TESTING.md (comprehensive test guide)
+  - D.2.12-final-validation.md (complete metrics analysis)
+  - D.2.13-refactoring-deep-dive.md (future optimization roadmap)
+  - 7 test builders in packages/git-ops/test/builders/
+  - FakeGitAdapter in @kodebase/test-utils
+  - Contract test suites
+  - Property test implementations
+  - Mutation test infrastructure (Stryker configured)
+
+  ## Next Steps (Future)
+
+  If resuming mutation score improvement:
+
+  1. Refactor github.ts with Builder Pattern → +14-16pp
+  2. Normalize options in validators → +17-21pp
+  3. Refactor orchestrators with Strategy Pattern → +17-23pp
+     Target: 78-82% achievable with 6-8 hours of focused refactoring
+
+  ## References
+
+  - Full validation: `packages/git-ops/test-report/D.2.12-final-validation.md`
+  - Testing guide: `packages/git-ops/TESTING.md`
+  - Future roadmap: `packages/git-ops/test-report/D.2.13-refactoring-deep-dive.md` (on D.2.13 branch)
+
 ## 0.7.1
 
 ### Patch Changes
