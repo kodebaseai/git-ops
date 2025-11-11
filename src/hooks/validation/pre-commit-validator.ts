@@ -153,12 +153,19 @@ export async function validatePreCommit(
       // Convert validation errors to pre-commit errors
       for (const error of result.errors) {
         const errorType = mapValidationErrorType(error.code);
+
+        // Provide default suggestedFix for schema errors if not present
+        let suggestedFix = error.suggestedFix;
+        if (!suggestedFix && errorType === "INVALID_SCHEMA") {
+          suggestedFix = `Check artifact ${artifactId} structure and required fields`;
+        }
+
         errors.push({
           type: errorType,
           message: error.message,
           artifactId,
           field: error.field,
-          suggestedFix: error.suggestedFix,
+          suggestedFix,
         });
       }
     }
@@ -220,7 +227,17 @@ function extractArtifactIdFromPath(filePath: string): string | null {
  * @private
  */
 function mapValidationErrorType(errorCode: string): PreCommitErrorType {
-  if (errorCode.includes("schema") || errorCode.includes("SCHEMA")) {
+  // Schema validation errors (Zod errors for type/structure issues)
+  if (
+    errorCode.includes("schema") ||
+    errorCode.includes("SCHEMA") ||
+    errorCode.includes("invalid_type") ||
+    errorCode.includes("invalid_union") ||
+    errorCode.includes("invalid_literal") ||
+    errorCode.includes("invalid_enum_value") ||
+    errorCode.includes("unrecognized_keys") ||
+    errorCode === "custom" // Generic Zod custom validation errors
+  ) {
     return "INVALID_SCHEMA";
   }
   if (errorCode.includes("circular") || errorCode.includes("CIRCULAR")) {
