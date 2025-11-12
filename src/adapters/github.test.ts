@@ -9,12 +9,13 @@ import { GitHubAdapter } from "./github.js";
 // Mock fetch globally
 const originalFetch = global.fetch;
 
-// Mock execAsync
+// Mock exec utilities
 vi.mock("../utils/exec.js", () => ({
   execAsync: vi.fn(),
+  execWithStdin: vi.fn(),
 }));
 
-import { execAsync } from "../utils/exec.js";
+import { execAsync, execWithStdin } from "../utils/exec.js";
 
 describe("GitHubAdapter", () => {
   beforeEach(() => {
@@ -271,6 +272,8 @@ describe("GitHubAdapter", () => {
 
     describe("createPR", () => {
       it("should create a PR successfully", async () => {
+        const mockExecWithStdin = vi.mocked(execWithStdin);
+
         // Mock git remote URL
         mockExecAsync.mockResolvedValueOnce({
           stdout: "https://github.com/owner/repo.git",
@@ -278,8 +281,8 @@ describe("GitHubAdapter", () => {
           exitCode: 0,
         });
 
-        // Mock gh pr create
-        mockExecAsync.mockResolvedValueOnce({
+        // Mock gh pr create (now uses execWithStdin)
+        mockExecWithStdin.mockResolvedValueOnce({
           stdout: "https://github.com/owner/repo/pull/123",
           stderr: "",
           exitCode: 0,
@@ -319,17 +322,19 @@ describe("GitHubAdapter", () => {
 
         expect(result.number).toBe(123);
         expect(result.title).toBe("Test PR");
-        expect(mockExecAsync).toHaveBeenCalledTimes(3);
+        expect(mockExecWithStdin).toHaveBeenCalledTimes(1);
       });
 
       it("should handle PR creation failure", async () => {
+        const mockExecWithStdin = vi.mocked(execWithStdin);
+
         mockExecAsync.mockResolvedValueOnce({
           stdout: "https://github.com/owner/repo.git",
           stderr: "",
           exitCode: 0,
         });
 
-        mockExecAsync.mockResolvedValueOnce({
+        mockExecWithStdin.mockResolvedValueOnce({
           stdout: "",
           stderr: "PR creation failed",
           exitCode: 1,
@@ -346,13 +351,15 @@ describe("GitHubAdapter", () => {
 
     describe("createDraftPR", () => {
       it("should create a draft PR successfully", async () => {
+        const mockExecWithStdin = vi.mocked(execWithStdin);
+
         mockExecAsync.mockResolvedValueOnce({
           stdout: "https://github.com/owner/repo.git",
           stderr: "",
           exitCode: 0,
         });
 
-        mockExecAsync.mockResolvedValueOnce({
+        mockExecWithStdin.mockResolvedValueOnce({
           stdout: "https://github.com/owner/repo/pull/456",
           stderr: "",
           exitCode: 0,

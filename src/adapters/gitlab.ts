@@ -133,4 +133,12 @@ export class GitLabAdapter implements GitPlatformAdapter {
   async isAvailable(): Promise<boolean> {
     throw new GitLabNotImplementedError("isAvailable");
   }
+
+  async markPRReady(_prNumber: number): Promise<void> {
+    throw new GitLabNotImplementedError("markPRReady");
+  }
+
+  async findPRForBranch(_branchName: string): Promise<PRInfo | null> {
+    throw new GitLabNotImplementedError("findPRForBranch");
+  }
 }

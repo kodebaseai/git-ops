@@ -546,4 +546,74 @@ export interface GitPlatformAdapter {
    * ```
    */
   isAvailable(): Promise<boolean>;
+
+  /**
+   * Mark a draft pull request as ready for review
+   *
+   * @param prNumber - PR number to mark as ready
+   * @returns Promise that resolves when PR is marked as ready
+   *
+   * @remarks
+   * Converts a draft PR to a ready-for-review state. This allows the PR to be merged
+   * and typically notifies reviewers that it's ready for their attention.
+   *
+   * Platform-specific behavior:
+   * - GitHub: Uses `gh pr ready` command
+   * - GitLab: Removes WIP/Draft prefix from Merge Request title
+   * - Bitbucket: May not be supported (will throw descriptive error)
+   *
+   * @throws {Error} If:
+   * - PR is not a draft
+   * - PR doesn't exist
+   * - Insufficient permissions
+   * - Platform doesn't support draft PRs
+   *
+   * @example
+   * ```typescript
+   * // Create draft PR
+   * const pr = await adapter.createDraftPR({
+   *   title: 'WIP: New feature',
+   *   body: 'Work in progress',
+   *   branch: 'feature/wip',
+   *   baseBranch: 'main',
+   *   repoPath: '/path/to/repo'
+   * });
+   *
+   * // Later, mark as ready
+   * await adapter.markPRReady(pr.number);
+   * console.log('PR is now ready for review');
+   * ```
+   */
+  markPRReady(prNumber: number): Promise<void>;
+
+  /**
+   * Find a pull request for a specific branch
+   *
+   * @param branchName - Name of the branch to find PR for
+   * @returns Promise resolving to PR information, or null if no PR found
+   *
+   * @remarks
+   * Searches for an existing pull request that has the specified branch as its source branch.
+   * This is useful for:
+   * - Checking if a PR already exists before creating a new one
+   * - Finding the PR associated with the current working branch
+   * - Detecting user-created PRs
+   *
+   * Returns the most recent PR if multiple PRs exist for the same branch.
+   *
+   * @example
+   * ```typescript
+   * // Check if PR exists for current branch
+   * const existingPR = await adapter.findPRForBranch('feature/new-component');
+   *
+   * if (existingPR) {
+   *   console.log(`PR already exists: ${existingPR.url}`);
+   *   console.log(`Status: ${existingPR.isDraft ? 'Draft' : 'Ready'}`);
+   * } else {
+   *   // Create new PR
+   *   const newPR = await adapter.createDraftPR({...});
+   * }
+   * ```
+   */
+  findPRForBranch(branchName: string): Promise<PRInfo | null>;
 }

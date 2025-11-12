@@ -14,7 +14,7 @@ import {
   type TGitPlatform,
   type TMergeMethod,
 } from "../types/constants.js";
-import { execAsync } from "../utils/exec.js";
+import { execAsync, execWithStdin } from "../utils/exec.js";
 
 /**
  * GitHub adapter configuration
@@ -179,7 +179,8 @@ export class GitHubAdapter implements GitPlatformAdapter {
     ];
 
     if (options.title) args.push("--title", options.title);
-    if (options.body) args.push("--body", options.body);
+    // Use --body-file with stdin to avoid shell escaping issues with newlines
+    if (options.body) args.push("--body-file", "-");
     if (options.baseBranch) args.push("--base", options.baseBranch);
     if (options.branch) args.push("--head", options.branch);
     if (options.labels?.length) args.push("--label", options.labels.join(","));
@@ -189,7 +190,10 @@ export class GitHubAdapter implements GitPlatformAdapter {
       args.push("--reviewer", options.reviewers.join(","));
     if (options.milestone) args.push("--milestone", options.milestone);
 
-    const { stdout, exitCode, stderr } = await execAsync(args.join(" "));
+    const { stdout, exitCode, stderr } = await execWithStdin(
+      args,
+      options.body,
+    );
 
     if (exitCode !== 0) {
       throw new Error(`Failed to create PR: ${stderr || stdout}`);
@@ -218,7 +222,8 @@ export class GitHubAdapter implements GitPlatformAdapter {
     ];
 
     if (options.title) args.push("--title", options.title);
-    if (options.body) args.push("--body", options.body);
+    // Use --body-file with stdin to avoid shell escaping issues with newlines
+    if (options.body) args.push("--body-file", "-");
     if (options.baseBranch) args.push("--base", options.baseBranch);
     if (options.branch) args.push("--head", options.branch);
     if (options.labels?.length) args.push("--label", options.labels.join(","));
@@ -228,7 +233,10 @@ export class GitHubAdapter implements GitPlatformAdapter {
       args.push("--reviewer", options.reviewers.join(","));
     if (options.milestone) args.push("--milestone", options.milestone);
 
-    const { stdout, exitCode, stderr } = await execAsync(args.join(" "));
+    const { stdout, exitCode, stderr } = await execWithStdin(
+      args,
+      options.body,
+    );
 
     if (exitCode !== 0) {
       throw new Error(`Failed to create draft PR: ${stderr || stdout}`);
@@ -353,6 +361,83 @@ export class GitHubAdapter implements GitPlatformAdapter {
     if (exitCode !== 0) {
       throw new Error(
         `Failed to enable auto-merge for PR #${prNumber}: ${stderr || stdout}`,
+      );
+    }
+  }
+
+  async markPRReady(prNumber: number): Promise<void> {
+    const { exitCode, stderr, stdout } = await execAsync(
+      `gh pr ready ${prNumber}`,
+    );
+
+    if (exitCode !== 0) {
+      throw new Error(
+        `Failed to mark PR #${prNumber} as ready: ${stderr || stdout}`,
+      );
+    }
+  }
+
+  async findPRForBranch(branchName: string): Promise<PRInfo | null> {
+    const { stdout, exitCode } = await execAsync(
+      `gh pr list --head ${branchName} --json number,state,title,body,url,headRefName,baseRefName,author,createdAt,updatedAt,isDraft,labels,assignees,reviewRequests,reviewDecision,mergeable,mergeStateStatus --limit 1`,
+    );
+
+    if (exitCode !== 0 || !stdout) {
+      return null; // No PR found or error
+    }
+
+    try {
+      const prs = JSON.parse(stdout) as Array<{
+        number: number;
+        state: string;
+        title: string;
+        body: string;
+        url: string;
+        headRefName: string;
+        baseRefName: string;
+        author: { login: string };
+        createdAt: string;
+        updatedAt: string;
+        isDraft: boolean;
+        labels: Array<{ name: string }>;
+        assignees: Array<{ login: string }>;
+        reviewRequests: Array<{ login: string }>;
+        reviewDecision: string | null;
+        mergeable: string;
+        mergeStateStatus: string;
+      }>;
+
+      if (prs.length === 0) {
+        return null; // No PR found
+      }
+
+      const data = prs[0];
+      if (!data) {
+        return null;
+      }
+
+      return {
+        number: data.number,
+        state: data.state,
+        title: data.title,
+        body: data.body,
+        url: data.url,
+        sourceBranch: data.headRefName,
+        targetBranch: data.baseRefName,
+        author: data.author.login,
+        createdAt: new Date(data.createdAt),
+        updatedAt: new Date(data.updatedAt),
+        isDraft: data.isDraft,
+        labels: data.labels.map((l) => l.name),
+        assignees: data.assignees.map((a) => a.login),
+        reviewers: data.reviewRequests.map((r) => r.login),
+        reviewStatus: this.mapReviewDecision(data.reviewDecision),
+        mergeable: data.mergeable === "MERGEABLE",
+        hasConflicts: data.mergeStateStatus === "DIRTY",
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to parse PR data: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

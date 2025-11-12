@@ -2,7 +2,7 @@
  * Utility functions for executing shell commands
  */
 
-import { exec } from "node:child_process";
+import { exec, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
 const execPromise = promisify(exec);
@@ -70,4 +70,63 @@ export async function execAsync(
     // Re-throw unexpected errors
     throw error;
   }
+}
+
+/**
+ * Execute a shell command with stdin input
+ *
+ * @param command - Command to execute (array of args)
+ * @param stdin - Input to write to stdin
+ * @returns Promise resolving to execution result
+ *
+ * @remarks
+ * Uses spawn to properly handle stdin input without shell escaping issues.
+ * Useful for commands that need multi-line input or special characters.
+ *
+ * @example
+ * ```typescript
+ * const result = await execWithStdin(['gh', 'pr', 'create', '--body-file', '-'], 'PR body\n\nWith newlines');
+ * ```
+ */
+export async function execWithStdin(
+  args: string[],
+  stdin?: string,
+): Promise<ExecResult> {
+  return new Promise((resolve) => {
+    const [command, ...restArgs] = args;
+    const child = spawn(command ?? "", restArgs);
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout?.on("data", (data: Buffer) => {
+      stdout += data.toString();
+    });
+
+    child.stderr?.on("data", (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    child.on("close", (code: number | null) => {
+      resolve({
+        stdout: stdout.trim(),
+        stderr: stderr.trim(),
+        exitCode: code ?? 0,
+      });
+    });
+
+    child.on("error", (error: Error) => {
+      resolve({
+        stdout: "",
+        stderr: error.message,
+        exitCode: 1,
+      });
+    });
+
+    // Write stdin if provided
+    if (stdin && child.stdin) {
+      child.stdin.write(stdin);
+    }
+    child.stdin?.end();
+  });
 }
