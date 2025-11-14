@@ -298,9 +298,9 @@
 
   **Documentation:**
 
-  - See `.kodebase/docs/specs/git-ops/git-hooks.md` for hook specifications
-  - See `.kodebase/docs/specs/git-ops/cascade-system.md` for cascade workflows
-  - See `.kodebase/docs/spikes/zod-global-registry-test-conflicts.md` for Zod registry issue details
+  - See `.kodebase/docs/reference/specs/git-ops/git-hooks.md` for hook specifications
+  - See `.kodebase/docs/reference/specs/git-ops/cascade-system.md` for cascade workflows
+  - See `.kodebase/docs/reference/spikes/zod-global-registry-test-conflicts.md` for Zod registry issue details
 
 ## 0.4.0
 
