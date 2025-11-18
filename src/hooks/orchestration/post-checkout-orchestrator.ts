@@ -16,6 +16,7 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import { ArtifactService, CascadeService } from "@kodebase/artifacts";
+import { CArtifactEvent, CEventTrigger } from "@kodebase/core";
 import {
   getArtifactSlug,
   getCurrentState,
@@ -182,7 +183,7 @@ export class PostCheckoutOrchestrator {
             const cascadeResult =
               await this.cascadeService.executeProgressCascade({
                 artifactId,
-                trigger: "branch_created",
+                trigger: CEventTrigger.BRANCH_CREATED,
                 actor: "Git Hook (hook@post-checkout)",
                 baseDir: this.config.baseDir,
               });
@@ -190,7 +191,7 @@ export class PostCheckoutOrchestrator {
             // Track which parents were updated
             for (const event of cascadeResult.events) {
               if (
-                event.event === "in_progress" &&
+                event.event === CArtifactEvent.IN_PROGRESS &&
                 !parentsCascaded.includes(event.artifactId)
               ) {
                 parentsCascaded.push(event.artifactId);
@@ -283,7 +284,7 @@ export class PostCheckoutOrchestrator {
     const currentState = getCurrentState(artifact);
 
     // Check if already in_progress (idempotency)
-    if (currentState === "in_progress") {
+    if (currentState === CArtifactEvent.IN_PROGRESS) {
       console.log(
         `Artifact ${artifactId} already in_progress, skipping transition`,
       );
@@ -292,7 +293,10 @@ export class PostCheckoutOrchestrator {
 
     // Check if artifact is in a valid state to transition
     // Valid states: draft, ready
-    if (currentState !== "draft" && currentState !== "ready") {
+    if (
+      currentState !== CArtifactEvent.DRAFT &&
+      currentState !== CArtifactEvent.READY
+    ) {
       throw new Error(
         `Cannot transition ${artifactId} from ${currentState} to in_progress`,
       );
@@ -303,10 +307,10 @@ export class PostCheckoutOrchestrator {
 
     // Add in_progress event
     const event = {
-      event: "in_progress" as const,
+      event: CArtifactEvent.IN_PROGRESS,
       timestamp: new Date().toISOString(),
       actor,
-      trigger: "branch_created",
+      trigger: CEventTrigger.BRANCH_CREATED,
     };
 
     // Append event using ArtifactService

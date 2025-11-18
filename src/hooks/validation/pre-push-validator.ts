@@ -10,7 +10,7 @@
  */
 
 import { type ArtifactWithId, QueryService } from "@kodebase/artifacts";
-import type { TAnyArtifact } from "@kodebase/core";
+import { CArtifactEvent, type TAnyArtifact } from "@kodebase/core";
 import {
   ARTIFACT_ID_REGEX,
   getCurrentState,
@@ -200,7 +200,7 @@ function checkArtifactState(
   try {
     const currentState = getCurrentState(artifact);
 
-    if (currentState === "draft") {
+    if (currentState === CArtifactEvent.DRAFT) {
       warnings.push({
         type: "DRAFT_ARTIFACT",
         message: `Artifact ${artifactId} is in 'draft' state`,
@@ -208,7 +208,7 @@ function checkArtifactState(
         details:
           "Consider transitioning to 'ready' or 'in_progress' before pushing",
       });
-    } else if (currentState === "blocked") {
+    } else if (currentState === CArtifactEvent.BLOCKED) {
       warnings.push({
         type: "BLOCKED_ARTIFACT",
         message: `Artifact ${artifactId} is in 'blocked' state`,

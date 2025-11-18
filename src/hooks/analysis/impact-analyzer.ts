@@ -13,7 +13,7 @@ import {
   DependencyGraphService,
   QueryService,
 } from "@kodebase/artifacts";
-import type { TAnyArtifact } from "@kodebase/core";
+import { CArtifactEvent, type TAnyArtifact } from "@kodebase/core";
 
 /**
  * Types of operations that can be analyzed
@@ -657,10 +657,10 @@ export class ImpactAnalyzer {
           if (sibling.id === artifactId) continue; // Skip the one being cancelled
 
           const hasCompleted = sibling.artifact.metadata.events.some(
-            (e) => e.event === "completed",
+            (e) => e.event === CArtifactEvent.COMPLETED,
           );
           const hasCancelled = sibling.artifact.metadata.events.some(
-            (e) => e.event === "cancelled",
+            (e) => e.event === CArtifactEvent.CANCELLED,
           );
 
           if (!hasCompleted && !hasCancelled) {
@@ -891,10 +891,10 @@ export class ImpactAnalyzer {
 
           // Check if this sibling is completed or cancelled
           const hasCompleted = sibling.artifact.metadata.events.some(
-            (e) => e.event === "completed",
+            (e) => e.event === CArtifactEvent.COMPLETED,
           );
           const hasCancelled = sibling.artifact.metadata.events.some(
-            (e) => e.event === "cancelled",
+            (e) => e.event === CArtifactEvent.CANCELLED,
           );
 
           const canHelpComplete = hasCompleted || hasCancelled;

@@ -6,6 +6,7 @@
  */
 
 import { CascadeService } from "@kodebase/artifacts";
+import { CEventTrigger } from "@kodebase/core";
 import type {
   ExecuteOrchestrationOptions,
   OrchestrationResult,
@@ -114,7 +115,7 @@ export class PostMergeOrchestrator {
           const completionResult =
             await this.cascadeService.executeCompletionCascade({
               artifactId,
-              trigger: "pr_merged",
+              trigger: CEventTrigger.PR_MERGED,
               actor: cascadeActor,
               baseDir: this.config.baseDir,
             });
@@ -137,7 +138,7 @@ export class PostMergeOrchestrator {
           const readinessResult =
             await this.cascadeService.executeReadinessCascade({
               completedArtifactId: artifactId,
-              trigger: "dependencies_met",
+              trigger: CEventTrigger.DEPENDENCIES_MET,
               actor: cascadeActor,
               baseDir: this.config.baseDir,
             });

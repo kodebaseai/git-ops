@@ -320,8 +320,8 @@ describe("artifact state transitions", () => {
 
     expect(result.events).toContainEqual(
       expect.objectContaining({
-        event: "ready",
-        trigger: "dependencies_met"
+        event: CArtifactEvent.READY,
+        trigger: CEventTrigger.DEPENDENCIES_MET
       })
     );
   });
