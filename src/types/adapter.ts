@@ -587,6 +587,34 @@ export interface GitPlatformAdapter {
   markPRReady(prNumber: number): Promise<void>;
 
   /**
+   * Update PR description/body
+   *
+   * @param prNumber - PR number to update
+   * @param description - New description/body content
+   * @returns Promise that resolves when update completes
+   *
+   * @remarks
+   * Updates the PR body/description with new content.
+   * This is useful for:
+   * - Updating PR description after implementation notes are added
+   * - Replacing default "work in progress" messages with proper templates
+   * - Adding implementation details before marking PR ready
+   *
+   * @throws {Error} If:
+   * - PR doesn't exist
+   * - Insufficient permissions
+   * - Platform API error
+   *
+   * @example
+   * ```typescript
+   * const description = generatePRDescription(artifact);
+   * await adapter.updatePRDescription(123, description);
+   * console.log('PR description updated');
+   * ```
+   */
+  updatePRDescription(prNumber: number, description: string): Promise<void>;
+
+  /**
    * Find a pull request for a specific branch
    *
    * @param branchName - Name of the branch to find PR for

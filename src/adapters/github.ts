@@ -377,6 +377,24 @@ export class GitHubAdapter implements GitPlatformAdapter {
     }
   }
 
+  async updatePRDescription(
+    prNumber: number,
+    description: string,
+  ): Promise<void> {
+    // Escape description for shell - use base64 to avoid quoting issues
+    const descriptionBase64 = Buffer.from(description).toString("base64");
+
+    const { exitCode, stderr, stdout } = await execAsync(
+      `echo "${descriptionBase64}" | base64 -d | gh pr edit ${prNumber} --body-file -`,
+    );
+
+    if (exitCode !== 0) {
+      throw new Error(
+        `Failed to update PR #${prNumber} description: ${stderr || stdout}`,
+      );
+    }
+  }
+
   async findPRForBranch(branchName: string): Promise<PRInfo | null> {
     const { stdout, exitCode } = await execAsync(
       `gh pr list --head ${branchName} --json number,state,title,body,url,headRefName,baseRefName,author,createdAt,updatedAt,isDraft,labels,assignees,reviewRequests,reviewDecision,mergeable,mergeStateStatus --limit 1`,

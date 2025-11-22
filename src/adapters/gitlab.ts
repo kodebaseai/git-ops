@@ -138,6 +138,13 @@ export class GitLabAdapter implements GitPlatformAdapter {
     throw new GitLabNotImplementedError("markPRReady");
   }
 
+  async updatePRDescription(
+    _prNumber: number,
+    _description: string,
+  ): Promise<void> {
+    throw new GitLabNotImplementedError("updatePRDescription");
+  }
+
   async findPRForBranch(_branchName: string): Promise<PRInfo | null> {
     throw new GitLabNotImplementedError("findPRForBranch");
   }
