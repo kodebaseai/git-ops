@@ -1,6 +1,6 @@
 {
   "name": "@kodebase/git-ops",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Git platform abstraction for GitHub, GitLab, and Bitbucket operations",
   "license": "MIT",
   "homepage": "https://github.com/kodebaseai/git-ops#readme",

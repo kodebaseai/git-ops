@@ -1,5 +1,69 @@
 # @kodebase/git-ops
 
+## 1.1.0
+
+### Minor Changes
+
+- [`ca1c4d0`](https://github.com/kodebaseai/kodebase/commit/ca1c4d0d64ef53b3eda3d3d66a4d0b7bfc3f2287) Thanks [@migcarva](https://github.com/migcarva)! - Enhanced `kb start <id> --submit` flow with comprehensive validation and PR template generation
+
+  **New Features:**
+
+  1. **Implementation Notes Validation** ([packages/cli/src/commands/Start.tsx:453-470](packages/cli/src/commands/Start.tsx#L453-L470))
+
+     - Validates ISSUE artifacts have `implementation_notes` before allowing PR submission
+     - Provides clear error message with required fields and examples
+     - Ensures quality documentation before code review
+
+  2. **PR Template Generation** ([packages/cli/src/utils/pr-template.ts](packages/cli/src/utils/pr-template.ts))
+
+     - Generates comprehensive PR descriptions from artifact metadata
+     - Includes summary, implementation notes, challenges/solutions, insights, and acceptance criteria
+     - Automatically replaces default "work in progress" messages
+     - Template structure:
+       - Summary section from artifact content
+       - Implementation section (result, tags, challenges, insights)
+       - Acceptance criteria checklist (pre-checked)
+
+  3. **Remote Sync Validation** ([packages/cli/src/commands/Start.tsx:472-489](packages/cli/src/commands/Start.tsx#L472-L489))
+
+     - Checks all changes are committed and pushed before submission
+     - Validates branch is up-to-date with remote
+     - Prevents submission with uncommitted changes or unpushed commits
+
+  4. **In-Review Event Management** ([packages/cli/src/commands/Start.tsx:505-555](packages/cli/src/commands/Start.tsx#L505-L555))
+
+     - Checks for existing `in_review` events with `pr_ready` trigger
+     - Updates timestamp if event already exists (instead of duplicating)
+     - Creates new event only when first marking PR ready
+     - Automatically commits and pushes event changes
+
+  5. **GitPlatformAdapter Enhancement** ([packages/git-ops/src/types/adapter.ts:589-615](packages/git-ops/src/types/adapter.ts#L589-L615))
+     - New `updatePRDescription(prNumber, description)` method
+     - GitHub implementation using `gh pr edit` ([packages/git-ops/src/adapters/github.ts:380-396](packages/git-ops/src/adapters/github.ts#L380-L396))
+     - GitLab stub for future implementation
+
+  **Complete Submit Flow:**
+
+  When running `kb start <id> --submit`:
+
+  1. ✓ Validates PR exists and is in draft state
+  2. ✓ Checks ISSUE artifacts have implementation_notes
+  3. ✓ Validates no uncommitted changes
+  4. ✓ Validates no unpushed commits
+  5. ✓ Updates PR description if still using default message
+  6. ✓ Updates or creates in_review event
+  7. ✓ Commits and pushes event changes
+  8. ✓ Marks PR as ready for review
+
+  **Breaking Changes:** None - all enhancements are backward compatible
+
+  **Implementation Details:**
+
+  - PR template uses artifact metadata for comprehensive descriptions
+  - Implementation notes validation only applies to ISSUE type artifacts
+  - Existing in_review events are updated rather than duplicated
+  - Base64 encoding used in `updatePRDescription` to handle special characters safely
+
 ## 1.0.2
 
 ### Patch Changes
