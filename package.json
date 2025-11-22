@@ -1,6 +1,6 @@
 {
   "name": "@kodebase/git-ops",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Git platform abstraction for GitHub, GitLab, and Bitbucket operations",
   "license": "MIT",
   "homepage": "https://github.com/kodebaseai/git-ops#readme",
@@ -61,12 +61,12 @@
     "@stryker-mutator/core": "^9.3.0",
     "@stryker-mutator/vitest-runner": "^9.3.0",
     "@types/node": "^22.19.0",
-    "@vitest/coverage-istanbul": "^4.0.7",
-    "@vitest/coverage-v8": "^4.0.7",
+    "@vitest/coverage-istanbul": "^4.0.12",
+    "@vitest/coverage-v8": "^4.0.12",
     "fast-check": "4.3.0",
     "memfs": "^4.50.0",
     "publint": "^0.3.15",
-    "vitest": "latest",
+    "vitest": "4.0.12",
     "zod": "^4.1.12"
   }
 }

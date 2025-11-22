@@ -1,5 +1,12 @@
 # @kodebase/git-ops
 
+## 1.0.1
+
+### Patch Changes
+
+- Updated dependencies [[`ee86091`](https://github.com/kodebaseai/kodebase/commit/ee86091417044998e1c9c0b33d1d05ad8dc20835)]:
+  - @kodebase/artifacts@1.1.3
+
 ## 1.0.0
 
 ### Major Changes
