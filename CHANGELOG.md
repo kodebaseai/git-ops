@@ -1,5 +1,18 @@
 # @kodebase/git-ops
 
+## 1.0.2
+
+### Patch Changes
+
+- [`5a9c58c`](https://github.com/kodebaseai/kodebase/commit/5a9c58c451fc060cab7bb6cee3d986d4c22e89c7) Thanks [@migcarva](https://github.com/migcarva)! - Implement hooks command for git hook management
+
+  - Add `kb hooks` command with execute, install, and uninstall subcommands
+  - Export detectors and orchestrators from @kodebase/git-ops public API
+  - Fix CLI version to match package.json (1.0.1)
+  - Add comprehensive help documentation for hooks command
+
+  The `kb hooks execute <hook-type>` command is now called by git hooks to handle post-merge and post-checkout automation. This fixes the issue where installed git hooks were calling a non-existent command.
+
 ## 1.0.1
 
 ### Patch Changes
