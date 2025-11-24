@@ -58,15 +58,15 @@
     "@fast-check/vitest": "0.2.3",
     "@kodebase/test-utils": "workspace:*",
     "@kodebase/typescript-config": "workspace:*",
-    "@stryker-mutator/core": "^9.3.0",
-    "@stryker-mutator/vitest-runner": "^9.3.0",
-    "@types/node": "^22.19.0",
-    "@vitest/coverage-istanbul": "^4.0.12",
-    "@vitest/coverage-v8": "^4.0.12",
+    "@stryker-mutator/core": "^9.4.0",
+    "@stryker-mutator/vitest-runner": "^9.4.0",
+    "@types/node": "^22.19.1",
+    "@vitest/coverage-istanbul": "^4.0.13",
+    "@vitest/coverage-v8": "^4.0.13",
     "fast-check": "4.3.0",
-    "memfs": "^4.50.0",
+    "memfs": "^4.51.0",
     "publint": "^0.3.15",
-    "vitest": "4.0.12",
-    "zod": "^4.1.12"
+    "vitest": "4.0.13",
+    "zod": "^4.1.13"
   }
 }
