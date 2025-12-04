@@ -21,9 +21,11 @@ export interface PostMergeOrchestratorConfig {
 export interface OrchestrationResult {
   /** Merge metadata from detection */
   mergeMetadata: MergeMetadata;
-  /** Result of completion cascade */
+  /** Artifacts transitioned to completed */
+  artifactCompletions: CascadeResult;
+  /** Result of completion cascade (parent transitions) */
   completionCascade: CascadeResult;
-  /** Result of readiness cascade */
+  /** Result of readiness cascade (dependent unblocking) */
   readinessCascade: CascadeResult;
   /** Summary message describing all changes */
   summary: string;

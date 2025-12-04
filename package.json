@@ -62,9 +62,9 @@
     "@stryker-mutator/vitest-runner": "^9.4.0",
     "@types/node": "^22.19.1",
     "@vitest/coverage-istanbul": "^4.0.13",
-    "@vitest/coverage-v8": "^4.0.13",
+    "@vitest/coverage-v8": "^4.0.15",
     "fast-check": "4.3.0",
-    "memfs": "^4.51.0",
+    "memfs": "^4.51.1",
     "publint": "^0.3.15",
     "vitest": "4.0.13",
     "zod": "^4.1.13"

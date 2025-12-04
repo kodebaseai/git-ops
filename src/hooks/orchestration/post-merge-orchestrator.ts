@@ -5,8 +5,8 @@
  * Thin coordinator that delegates to CascadeService for all cascade logic.
  */
 
-import { CascadeService } from "@kodebase/artifacts";
-import { CEventTrigger } from "@kodebase/core";
+import { ArtifactService, CascadeService } from "@kodebase/artifacts";
+import { CArtifactEvent, CEventTrigger } from "@kodebase/core";
 import type {
   ExecuteOrchestrationOptions,
   OrchestrationResult,
@@ -55,13 +55,16 @@ const DEFAULT_CONFIG: Required<PostMergeOrchestratorConfig> = {
 export class PostMergeOrchestrator {
   private config: Required<PostMergeOrchestratorConfig>;
   private cascadeService: CascadeService;
+  private artifactService: ArtifactService;
 
   constructor(
     config: PostMergeOrchestratorConfig = {},
     cascadeService?: CascadeService,
+    artifactService?: ArtifactService,
   ) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.cascadeService = cascadeService ?? new CascadeService();
+    this.artifactService = artifactService ?? new ArtifactService();
   }
 
   /**
@@ -94,6 +97,7 @@ export class PostMergeOrchestrator {
     // Initialize result
     const result: OrchestrationResult = {
       mergeMetadata,
+      artifactCompletions: { updatedArtifacts: [], events: [] },
       completionCascade: { updatedArtifacts: [], events: [] },
       readinessCascade: { updatedArtifacts: [], events: [] },
       summary: "",
@@ -110,6 +114,36 @@ export class PostMergeOrchestrator {
     try {
       // Execute cascades for each artifact
       for (const artifactId of mergeMetadata.artifactIds) {
+        // 0. Transition merged artifact to completed
+        try {
+          const timestamp = new Date().toISOString();
+          const updatedArtifact = await this.artifactService.appendEvent({
+            id: artifactId,
+            event: {
+              event: CArtifactEvent.COMPLETED,
+              timestamp,
+              actor: cascadeActor,
+              trigger: CEventTrigger.PR_MERGED,
+            },
+            baseDir: this.config.baseDir,
+          });
+
+          result.artifactCompletions.updatedArtifacts.push(updatedArtifact);
+          result.artifactCompletions.events.push({
+            artifactId,
+            event: CArtifactEvent.COMPLETED,
+            timestamp,
+            actor: cascadeActor,
+            trigger: CEventTrigger.PR_MERGED,
+          });
+        } catch (error) {
+          // Log error but continue with cascades
+          console.error(
+            `Failed to mark ${artifactId} as completed:`,
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+
         // 1. Completion Cascade (upward to parent)
         try {
           const completionResult =
@@ -159,11 +193,13 @@ export class PostMergeOrchestrator {
 
       // Calculate totals (count unique artifacts from events)
       const uniqueArtifacts = new Set<string>([
+        ...result.artifactCompletions.events.map((e) => e.artifactId),
         ...result.completionCascade.events.map((e) => e.artifactId),
         ...result.readinessCascade.events.map((e) => e.artifactId),
       ]);
       result.totalArtifactsUpdated = uniqueArtifacts.size;
       result.totalEventsAdded =
+        result.artifactCompletions.events.length +
         result.completionCascade.events.length +
         result.readinessCascade.events.length;
 
@@ -189,7 +225,19 @@ export class PostMergeOrchestrator {
       `Post-merge cascades for artifacts: ${result.mergeMetadata.artifactIds.join(", ")}`,
     );
 
-    // Completion cascade results
+    // Artifact completions
+    if (result.artifactCompletions.events.length > 0) {
+      lines.push(
+        `\nArtifact completions: ${result.artifactCompletions.events.length} event(s)`,
+      );
+      for (const event of result.artifactCompletions.events) {
+        lines.push(`  - ${event.artifactId} → ${event.event}`);
+      }
+    } else {
+      lines.push("\nArtifact completions: no changes");
+    }
+
+    // Completion cascade results (parent transitions)
     if (result.completionCascade.events.length > 0) {
       lines.push(
         `\nCompletion cascade: ${result.completionCascade.events.length} event(s)`,
@@ -201,7 +249,7 @@ export class PostMergeOrchestrator {
       lines.push("\nCompletion cascade: no changes");
     }
 
-    // Readiness cascade results
+    // Readiness cascade results (dependent unblocking)
     if (result.readinessCascade.events.length > 0) {
       lines.push(
         `\nReadiness cascade: ${result.readinessCascade.events.length} event(s)`,
@@ -228,6 +276,7 @@ export class PostMergeOrchestrator {
 export function createPostMergeOrchestrator(
   config?: PostMergeOrchestratorConfig,
   cascadeService?: CascadeService,
+  artifactService?: ArtifactService,
 ): PostMergeOrchestrator {
-  return new PostMergeOrchestrator(config, cascadeService);
+  return new PostMergeOrchestrator(config, cascadeService, artifactService);
 }
