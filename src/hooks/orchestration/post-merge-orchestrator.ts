@@ -92,7 +92,7 @@ export class PostMergeOrchestrator {
     options: ExecuteOrchestrationOptions,
   ): Promise<OrchestrationResult> {
     const { mergeMetadata, actor } = options;
-    const cascadeActor = actor ?? "System Cascade (cascade@post-merge)";
+    const cascadeActor = actor ?? "agent.cascade@github";
 
     // Initialize result
     const result: OrchestrationResult = {

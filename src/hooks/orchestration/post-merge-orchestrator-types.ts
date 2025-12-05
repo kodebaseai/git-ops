@@ -41,6 +41,6 @@ export interface OrchestrationResult {
 export interface ExecuteOrchestrationOptions {
   /** Merge metadata from PostMergeDetector */
   mergeMetadata: MergeMetadata;
-  /** Actor for cascade events (defaults to 'System Cascade (cascade@post-merge)') */
+  /** Actor for cascade events (defaults to 'agent.cascade@github') */
   actor?: string;
 }

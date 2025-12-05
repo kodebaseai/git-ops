@@ -70,7 +70,7 @@ describe("PostMergeOrchestrator", () => {
       expect(mockCascadeService.executeCompletionCascade).toHaveBeenCalledWith({
         artifactId: "A.1.5",
         trigger: "pr_merged",
-        actor: "System Cascade (cascade@post-merge)",
+        actor: "agent.cascade@github",
         baseDir: process.cwd(),
       });
 
@@ -78,7 +78,7 @@ describe("PostMergeOrchestrator", () => {
       expect(mockCascadeService.executeReadinessCascade).toHaveBeenCalledWith({
         completedArtifactId: "A.1.5",
         trigger: "dependencies_met",
-        actor: "System Cascade (cascade@post-merge)",
+        actor: "agent.cascade@github",
         baseDir: process.cwd(),
       });
 
