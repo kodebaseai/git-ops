@@ -126,9 +126,9 @@ const cascadeEventArbitrary = fc.record({
     .integer({ min: 1704067200000, max: 1798761600000 }) // 2024-01-01 to 2027-01-01 in ms
     .map((ms) => new Date(ms).toISOString()),
   actor: fc.constantFrom(
-    "System Cascade (cascade@completion)",
-    "System Cascade (cascade@dependency-resolution)",
-    "test-user@example.com",
+    "agent.cascade",
+    "agent.cascade@github",
+    "Test User (test-user@example.com)",
   ),
   trigger: fc.constantFrom(
     "children_completed",
