@@ -14,6 +14,8 @@ export interface MergeMetadata {
   commitSha: string;
   /** Pull/Merge request number (if available) */
   prNumber: number | null;
+  /** PR URL (if available) */
+  prUrl: string | null;
   /** PR title (if available) */
   prTitle: string | null;
   /** PR body/description (if available) */

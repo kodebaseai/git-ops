@@ -419,7 +419,8 @@ describe("PostMergeDetector", () => {
 
       // PR number should be extracted from commit message
       expect(result.metadata?.prNumber).toBe(123);
-      // But title and body will be null (no gh CLI in test environment)
+      // But URL, title, and body will be null (no gh CLI in test environment)
+      expect(result.metadata?.prUrl).toBeNull();
       expect(result.metadata?.prTitle).toBeNull();
       expect(result.metadata?.prBody).toBeNull();
     });

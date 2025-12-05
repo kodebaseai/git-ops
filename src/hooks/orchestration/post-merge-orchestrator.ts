@@ -117,6 +117,7 @@ export class PostMergeOrchestrator {
         // 0. Transition merged artifact to completed
         try {
           const timestamp = new Date().toISOString();
+
           const updatedArtifact = await this.artifactService.appendEvent({
             id: artifactId,
             event: {

@@ -119,10 +119,12 @@ export class PostMergeDetector {
     const prNumber = await this.getPRNumber();
 
     // Get PR metadata if we have a PR number
+    let prUrl: string | null = null;
     let prTitle: string | null = null;
     let prBody: string | null = null;
     if (prNumber !== null) {
       const prMetadata = await this.getPRMetadata(prNumber);
+      prUrl = prMetadata.url;
       prTitle = prMetadata.title;
       prBody = prMetadata.body;
     }
@@ -138,6 +140,7 @@ export class PostMergeDetector {
       sourceBranch,
       commitSha,
       prNumber,
+      prUrl,
       prTitle,
       prBody,
       isPRMerge,
@@ -227,27 +230,34 @@ export class PostMergeDetector {
   /**
    * Get PR metadata from GitHub API or gh CLI
    */
-  private async getPRMetadata(
-    prNumber: number,
-  ): Promise<{ title: string | null; body: string | null }> {
+  private async getPRMetadata(prNumber: number): Promise<{
+    url: string | null;
+    title: string | null;
+    body: string | null;
+  }> {
     try {
       // Try gh CLI first (simpler, handles auth automatically)
       const { stdout } = await this.execRunner(
-        `gh pr view ${prNumber} --json title,body`,
+        `gh pr view ${prNumber} --json url,title,body`,
         {
           cwd: this.config.gitRoot,
         },
       );
 
-      const data = JSON.parse(stdout) as { title: string; body: string };
+      const data = JSON.parse(stdout) as {
+        url: string;
+        title: string;
+        body: string;
+      };
       return {
+        url: data.url || null,
         title: data.title || null,
         body: data.body || null,
       };
     } catch {
       // If gh CLI fails, fall back to empty metadata
       // TODO: Implement GitHub API fallback with token
-      return { title: null, body: null };
+      return { url: null, title: null, body: null };
     }
   }
 }
